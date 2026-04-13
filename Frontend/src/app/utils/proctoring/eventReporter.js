@@ -108,6 +108,50 @@ export function getProctoringQueueStats() {
   };
 }
 
+export async function saveProctoringSummary(token, summary) {
+  if (!token || !summary) {
+    return null;
+  }
+
+  const response = await fetch(`${API_URL}/api/interview/proctoring/${token}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      summary
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function saveInterviewSnapshot(token, imageData) {
+  if (!token || !imageData) {
+    return null;
+  }
+
+  const response = await fetch(`${API_URL}/api/interview/snapshot/${token}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      imageData
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function flushProctoringEvents() {
   if (batchTimer) {
     window.clearTimeout(batchTimer);

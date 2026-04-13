@@ -5,7 +5,9 @@ import { analyzeFace, PROCTORING_SEVERITY } from '../utils/proctoring/faceAnalys
 import {
   flushProctoringEvents,
   getProctoringQueueStats,
-  queueProctoringEvent
+  queueProctoringEvent,
+  saveInterviewSnapshot,
+  saveProctoringSummary
 } from '../utils/proctoring/eventReporter';
 
 const DETECTION_INTERVAL_MS = 1800;
@@ -39,6 +41,14 @@ export function useInterviewProctoring({
   const detectorRef = useRef(null);
   const cooldownRef = useRef(new Map());
   const processingRef = useRef(false);
+  const snapshotCapturedRef = useRef(false);
+  const snapshotUploadInFlightRef = useRef(false);
+  const latestSummaryRef = useRef({
+    faceDetectionCount: 0,
+    warningCount: 0,
+    alertCount: 0,
+    criticalCount: 0
+  });
   const [modelStatus, setModelStatus] = useState('idle');
   const [analysis, setAnalysis] = useState({
     hasFace: false,
@@ -51,9 +61,18 @@ export function useInterviewProctoring({
   const [recentEvents, setRecentEvents] = useState([]);
   const [queueStats, setQueueStats] = useState(getProctoringQueueStats());
   const [counts, setCounts] = useState({ total: 0, critical: 0, warning: 0, info: 0 });
+  const [faceDetectionCount, setFaceDetectionCount] = useState(0);
 
   useEffect(() => {
     cooldownRef.current.clear();
+    snapshotCapturedRef.current = false;
+    snapshotUploadInFlightRef.current = false;
+    latestSummaryRef.current = {
+      faceDetectionCount: 0,
+      warningCount: 0,
+      alertCount: 0,
+      criticalCount: 0
+    };
     setAnalysis({
       hasFace: false,
       faceCount: 0,
@@ -64,8 +83,76 @@ export function useInterviewProctoring({
     });
     setRecentEvents([]);
     setCounts({ total: 0, critical: 0, warning: 0, info: 0 });
+    setFaceDetectionCount(0);
     setQueueStats(getProctoringQueueStats());
   }, [token]);
+
+  useEffect(() => {
+    latestSummaryRef.current = {
+      faceDetectionCount,
+      warningCount: counts.warning,
+      alertCount: counts.total,
+      criticalCount: counts.critical
+    };
+  }, [counts, faceDetectionCount]);
+
+  const syncSummary = async () => {
+    if (!token) {
+      return;
+    }
+
+    const summary = latestSummaryRef.current;
+
+    if (summary.faceDetectionCount === 0 && summary.alertCount === 0) {
+      return;
+    }
+
+    try {
+      await saveProctoringSummary(token, summary);
+    } catch (error) {
+      console.error('Failed to save proctoring summary:', error);
+    }
+  };
+
+  const captureInterviewSnapshot = async () => {
+    if (!token || snapshotCapturedRef.current || snapshotUploadInFlightRef.current) {
+      return;
+    }
+
+    const video = videoRef.current;
+    if (!video || video.readyState !== 4 || !video.videoWidth || !video.videoHeight) {
+      return;
+    }
+
+    const maxWidth = 360;
+    const scale = Math.min(1, maxWidth / video.videoWidth);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL('image/jpeg', 0.72);
+
+    if (!imageData || imageData === 'data:,') {
+      return;
+    }
+
+    snapshotUploadInFlightRef.current = true;
+
+    try {
+      await saveInterviewSnapshot(token, imageData);
+      snapshotCapturedRef.current = true;
+    } catch (error) {
+      console.error('Failed to save interview snapshot:', error);
+    } finally {
+      snapshotUploadInFlightRef.current = false;
+    }
+  };
 
   const pushRecentEvent = (event) => {
     setRecentEvents((prev) => {
@@ -180,6 +267,11 @@ export function useInterviewProctoring({
 
         setAnalysis(nextAnalysis);
 
+        if (nextAnalysis.hasFace && nextAnalysis.faceCount === 1) {
+          setFaceDetectionCount((prev) => prev + 1);
+          await captureInterviewSnapshot();
+        }
+
         for (const alert of nextAnalysis.alerts) {
           await emitEvent(alert);
         }
@@ -231,6 +323,7 @@ export function useInterviewProctoring({
     };
 
     const handleBeforeUnload = () => {
+      syncSummary();
       flushProctoringEvents().catch((error) => {
         console.error('Failed to flush proctoring events:', error);
       });
@@ -248,10 +341,23 @@ export function useInterviewProctoring({
   }, [enabled, interviewComplete, token]);
 
   useEffect(() => {
+    if (!enabled || !token) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      syncSummary();
+    }, 8000);
+
+    return () => window.clearInterval(intervalId);
+  }, [enabled, token]);
+
+  useEffect(() => {
     if (!interviewComplete) {
       return undefined;
     }
 
+    syncSummary();
     flushProctoringEvents().catch((error) => {
       console.error('Failed to flush proctoring events:', error);
     });

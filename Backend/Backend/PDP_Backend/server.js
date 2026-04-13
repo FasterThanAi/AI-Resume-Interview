@@ -43,7 +43,7 @@ const jobRoutes = require('./routes/jobs');
 const app = express();
 app.set('trust proxy', 1); // for railways
 // 2. NOW APPLY YOUR MIDDLEWARE
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
   credentials: true
@@ -208,7 +208,18 @@ app.get('/api/interview/verify/:token', async (req, res) => {
         strengths:             [],
         weaknesses:            [],
         finalRecommendation:   null,
-        proctoringEvents:      []
+        proctoringEvents:      [],
+        proctoringSummary: {
+          faceDetectionCount: 0,
+          warningCount: 0,
+          alertCount: 0,
+          criticalCount: 0,
+          lastUpdatedAt: null
+        },
+        interviewSnapshot: {
+          imageData: null,
+          capturedAt: null
+        }
       }
     });
     console.log(`[DB RESET] Session reset for candidate: ${candidate.name} (${candidate._id})`);
@@ -242,25 +253,37 @@ app.post('/api/interview/proctoring/:token', async (req, res) => {
       .map(normalizeProctoringEvent)
       .filter(Boolean)
       .slice(0, 25);
+    const summary = req.body.summary ? normalizeProctoringSummary(req.body.summary) : null;
 
-    if (events.length === 0) {
-      return res.status(400).json({ error: 'At least one valid proctoring event is required.' });
+    if (events.length === 0 && !summary) {
+      return res.status(400).json({ error: 'At least one valid proctoring event or summary is required.' });
     }
 
-    await Candidate.findByIdAndUpdate(candidate._id, {
-      $push: {
+    const update = {};
+
+    if (events.length > 0) {
+      update.$push = {
         proctoringEvents: {
           $each: events,
           $slice: -200
         }
-      }
-    });
+      };
+    }
 
-    console.log(`[DB WRITE] Saved ${events.length} proctoring event(s) for ${candidate.name}`);
+    if (summary) {
+      update.$set = {
+        proctoringSummary: summary
+      };
+    }
+
+    await Candidate.findByIdAndUpdate(candidate._id, update);
+
+    console.log(`[DB WRITE] Saved ${events.length} proctoring event(s) for ${candidate.name}${summary ? ' with summary' : ''}`);
 
     res.status(201).json({
       success: true,
-      recorded: events.length
+      recorded: events.length,
+      summarySaved: Boolean(summary)
     });
   } catch (error) {
     console.error('Proctoring ingestion error:', error.message);
@@ -269,6 +292,10 @@ app.post('/api/interview/proctoring/:token', async (req, res) => {
 });
 
 const responseCache = new Map(); // Global in-memory cache for repeated answers
+const TOTAL_INTERVIEW_QUESTION_COUNT = 3;
+const INTRO_QUESTION = "Can you briefly introduce your background?";
+const GENERATED_INTERVIEW_QUESTION_COUNT = Math.max(TOTAL_INTERVIEW_QUESTION_COUNT - 1, 1);
+const MAX_SNAPSHOT_DATA_LENGTH = 250000;
 
 const PROCTORING_EVENT_SEVERITY = {
   TAB_SWITCH: 'critical',
@@ -309,6 +336,71 @@ function normalizeProctoringEvent(rawEvent = {}) {
           : {}
   };
 }
+
+function normalizeProctoringSummary(rawSummary = {}) {
+  const toSafeNumber = (value) => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : 0;
+  };
+
+  return {
+    faceDetectionCount: toSafeNumber(rawSummary.faceDetectionCount),
+    warningCount: toSafeNumber(rawSummary.warningCount),
+    alertCount: toSafeNumber(rawSummary.alertCount),
+    criticalCount: toSafeNumber(rawSummary.criticalCount),
+    lastUpdatedAt: new Date()
+  };
+}
+
+function normalizeInterviewSnapshot(rawSnapshot = {}) {
+  const imageData = typeof rawSnapshot.imageData === 'string' ? rawSnapshot.imageData.trim() : '';
+
+  if (!imageData.startsWith('data:image/')) {
+    return null;
+  }
+
+  if (imageData.length > MAX_SNAPSHOT_DATA_LENGTH) {
+    return null;
+  }
+
+  return {
+    imageData,
+    capturedAt: new Date()
+  };
+}
+
+app.post('/api/interview/snapshot/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const candidate = await Candidate.findOne({ interviewToken: token }).select('_id name');
+
+    if (!candidate) {
+      return res.status(404).json({ error: 'Candidate not found. Invalid token.' });
+    }
+
+    const snapshot = normalizeInterviewSnapshot(req.body);
+
+    if (!snapshot) {
+      return res.status(400).json({ error: 'A valid interview snapshot image is required.' });
+    }
+
+    await Candidate.findByIdAndUpdate(candidate._id, {
+      $set: {
+        interviewSnapshot: snapshot
+      }
+    });
+
+    console.log(`[DB WRITE] Saved interview snapshot for ${candidate.name}`);
+
+    res.status(201).json({
+      success: true,
+      capturedAt: snapshot.capturedAt
+    });
+  } catch (error) {
+    console.error('Interview snapshot ingestion error:', error.message);
+    res.status(500).json({ error: 'Failed to save interview snapshot.' });
+  }
+});
 
 async function callGeminiWithModelFallback({ modelOptionsArray, chatOptions, prompt }) {
   let lastError;
@@ -376,7 +468,7 @@ app.post('/api/interview/chat', async (req, res) => {
       let previousQuestion = "";
       // If we haven't generated yet, they just answered the intro question
       if (!candidate.preGeneratedQuestions || candidate.preGeneratedQuestions.length === 0) {
-        previousQuestion = "Can you briefly introduce your background?";
+        previousQuestion = INTRO_QUESTION;
       } else {
         // They are answering the question we previously served
         if (candidate.currentQuestionIndex > 0) {
@@ -420,9 +512,9 @@ app.post('/api/interview/chat', async (req, res) => {
       console.log(`======================================`);
       
       const generationPrompt = `You are an expert HR Technical Interviewer. 
-Based on this resume, generate exactly 5 personalized, highly technical interview questions to ask the candidate.
-Return ONLY a valid JSON array of 5 strings and nothing else.
-Example: ["Q1", "Q2", "Q3", "Q4", "Q5"]
+Based on this resume, generate exactly ${GENERATED_INTERVIEW_QUESTION_COUNT} personalized, highly technical interview questions to ask the candidate.
+Return ONLY a valid JSON array of ${GENERATED_INTERVIEW_QUESTION_COUNT} strings and nothing else.
+Example: ${JSON.stringify(Array.from({ length: GENERATED_INTERVIEW_QUESTION_COUNT }, (_, index) => `Q${index + 1}`))}
 
 Resume:
 ${shortResume}`;
@@ -447,18 +539,16 @@ ${shortResume}`;
         }
         
         // Fallback if parsing fails
-        if (!questions || questions.length < 5) throw new Error("JSON generation failed");
+        if (!questions || questions.length < GENERATED_INTERVIEW_QUESTION_COUNT) throw new Error("JSON generation failed");
         
-        candidate.preGeneratedQuestions = questions; // keep in-memory for STAGE 2
+        candidate.preGeneratedQuestions = questions.slice(0, GENERATED_INTERVIEW_QUESTION_COUNT); // keep in-memory for STAGE 2
       } catch (err) {
         console.error("Failed to generate questions:", err.message);
         candidate.preGeneratedQuestions = [
           "Can you describe your technical background?",
           "What is the most complex bug you've recently solved?",
-          "How do you ensure code quality in your projects?",
-          "Can you explain a time you had to learn a new technology quickly?",
-          "Where do you see your technical skills growing in the next year?"
-        ];
+          "How do you ensure code quality in your projects?"
+        ].slice(0, GENERATED_INTERVIEW_QUESTION_COUNT);
       }
 
       candidate.currentQuestionIndex = 0; // keep in-memory for STAGE 2

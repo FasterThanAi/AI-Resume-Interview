@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   BarChart2,
+  Camera,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -50,25 +51,34 @@ function ScorePill({ score, label }) {
   );
 }
 
-function ProctoringReview({ candidate }) {
+function getProctoringMetrics(candidate) {
   const events = Array.isArray(candidate.proctoringEvents) ? candidate.proctoringEvents : [];
+  const summary = candidate.proctoringSummary || {};
+
+  return {
+    events,
+    faceDetectionCount: Number(summary.faceDetectionCount) || 0,
+    warningCount:
+      Number(summary.warningCount) ||
+      events.filter((event) => event.severity === 'warning').length,
+    alertCount:
+      Number(summary.alertCount) ||
+      events.length,
+    criticalCount:
+      Number(summary.criticalCount) ||
+      events.filter((event) => event.severity === 'critical').length
+  };
+}
+
+function ProctoringReview({ candidate }) {
+  const {
+    events,
+    faceDetectionCount,
+    warningCount,
+    alertCount,
+    criticalCount
+  } = getProctoringMetrics(candidate);
   const recentEvents = [...events].slice(-6).reverse();
-  const stats = events.reduce(
-    (summary, event) => {
-      summary.total += 1;
-
-      if (event.severity === 'critical') {
-        summary.critical += 1;
-      } else if (event.severity === 'warning') {
-        summary.warning += 1;
-      } else {
-        summary.info += 1;
-      }
-
-      return summary;
-    },
-    { total: 0, critical: 0, warning: 0, info: 0 }
-  );
 
   return (
     <div className="surface-panel-soft rounded-[1.5rem] p-5">
@@ -85,9 +95,9 @@ function ProctoringReview({ candidate }) {
 
         <div className="flex flex-wrap gap-2">
           {[
-            { label: 'Total', value: stats.total, color: 'var(--info)', bg: 'rgba(var(--info-rgb),0.12)', border: 'rgba(var(--info-rgb),0.24)' },
-            { label: 'Critical', value: stats.critical, color: 'var(--destructive)', bg: 'rgba(239,82,95,0.12)', border: 'rgba(239,82,95,0.24)' },
-            { label: 'Warning', value: stats.warning, color: 'var(--warning)', bg: 'rgba(var(--warning-rgb),0.12)', border: 'rgba(var(--warning-rgb),0.24)' }
+            { label: 'Faces', value: faceDetectionCount, color: 'var(--info)', bg: 'rgba(var(--info-rgb),0.12)', border: 'rgba(var(--info-rgb),0.24)' },
+            { label: 'Warnings', value: warningCount, color: 'var(--warning)', bg: 'rgba(var(--warning-rgb),0.12)', border: 'rgba(var(--warning-rgb),0.24)' },
+            { label: 'Alerts', value: alertCount, color: 'var(--destructive)', bg: 'rgba(239,82,95,0.12)', border: 'rgba(239,82,95,0.24)' }
           ].map((item) => (
             <span
               key={item.label}
@@ -135,26 +145,70 @@ function ProctoringReview({ candidate }) {
         <div
           className="rounded-[1.2rem] border p-4"
           style={{
-            borderColor: stats.critical > 0 ? 'rgba(239,82,95,0.24)' : 'rgba(var(--success-rgb),0.22)',
-            background: stats.critical > 0 ? 'rgba(239,82,95,0.08)' : 'rgba(var(--success-rgb),0.07)'
+            borderColor: criticalCount > 0 ? 'rgba(239,82,95,0.24)' : 'rgba(var(--success-rgb),0.22)',
+            background: criticalCount > 0 ? 'rgba(239,82,95,0.08)' : 'rgba(var(--success-rgb),0.07)'
           }}
         >
           <p
             className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em]"
-            style={{ color: stats.critical > 0 ? 'var(--destructive)' : 'var(--success)' }}
+            style={{ color: criticalCount > 0 ? 'var(--destructive)' : 'var(--success)' }}
           >
             <AlertTriangle className="h-3.5 w-3.5" />
             Recruiter Review Note
           </p>
           <p className="mt-4 text-sm leading-7 text-foreground">
-            {stats.critical > 0
+            {criticalCount > 0
               ? 'Critical proctoring activity was detected during the interview. Review these events with the transcript and score before making a decision.'
-              : stats.warning > 0
+              : warningCount > 0
                 ? 'Only warning-level proctoring signals were recorded. Review them for context, but the interview completed normally.'
                 : 'No suspicious proctoring activity was recorded in the integrated monitoring flow.'}
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function InterviewSnapshotPanel({ candidate }) {
+  const snapshot = candidate.interviewSnapshot?.imageData;
+  const capturedAt = candidate.interviewSnapshot?.capturedAt;
+
+  return (
+    <div className="surface-panel-soft rounded-[1.5rem] p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <Camera className="h-3.5 w-3.5" />
+            Interview Snapshot
+          </p>
+          <p className="text-sm leading-7 text-muted-foreground">
+            Still image captured from the live interview webcam for recruiter review.
+          </p>
+        </div>
+
+        {capturedAt && (
+          <span className="inline-flex rounded-full border border-white/8 bg-white/4 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+            Captured {new Date(capturedAt).toLocaleString()}
+          </span>
+        )}
+      </div>
+
+      {snapshot ? (
+        <div className="mt-5 overflow-hidden rounded-[1.35rem] border border-white/8 bg-black/10">
+          <img
+            src={snapshot}
+            alt={`${candidate.name} interview snapshot`}
+            className="h-[280px] w-full object-cover md:h-[320px]"
+            loading="lazy"
+          />
+        </div>
+      ) : (
+        <div className="mt-5 rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.03] px-4 py-5">
+          <p className="text-sm leading-7 text-muted-foreground">
+            No interview photo was captured for this session.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -178,6 +232,8 @@ function EvaluationPanel({ candidate }) {
 
   return (
     <div className="px-6 pb-6 pt-2 space-y-5">
+      <InterviewSnapshotPanel candidate={candidate} />
+
       {!hasEval && hasTranscript && (
         <div className="surface-panel-soft rounded-[1.5rem] p-5">
           <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -462,6 +518,7 @@ export function HrCandidates() {
                 const hasInterview = c.interviewScore !== null;
                 const hasTranscript = (c.interviewTranscript?.length || 0) > 0;
                 const isEvaluationPending = c.evaluationStatus === 'pending' || (hasTranscript && c.interviewScore === null);
+                const proctoringMetrics = getProctoringMetrics(c);
 
                 return (
                   <motion.div
@@ -527,6 +584,23 @@ export function HrCandidates() {
                         <div className="flex flex-wrap items-center gap-4 xl:justify-end">
                           <ScorePill score={c.atsMatchScore} label="ATS" />
                           {hasInterview && <ScorePill score={c.interviewScore} label="Interview" />}
+                          {hasInterview && (
+                            <div className="flex flex-wrap justify-end gap-2">
+                              {[
+                                { label: 'Faces', value: proctoringMetrics.faceDetectionCount, color: 'var(--info)', bg: 'rgba(var(--info-rgb),0.12)', border: 'rgba(var(--info-rgb),0.22)' },
+                                { label: 'Warnings', value: proctoringMetrics.warningCount, color: 'var(--warning)', bg: 'rgba(var(--warning-rgb),0.12)', border: 'rgba(var(--warning-rgb),0.22)' },
+                                { label: 'Alerts', value: proctoringMetrics.alertCount, color: 'var(--destructive)', bg: 'rgba(239,82,95,0.12)', border: 'rgba(239,82,95,0.22)' }
+                              ].map((item) => (
+                                <span
+                                  key={`${c._id}-${item.label}`}
+                                  className="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold"
+                                  style={{ color: item.color, background: item.bg, borderColor: item.border }}
+                                >
+                                  {item.label}: {item.value}
+                                </span>
+                              ))}
+                            </div>
+                          )}
 
                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             <button

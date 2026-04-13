@@ -54,6 +54,19 @@ const CandidateSchema = new mongoose.Schema({
       details: { type: mongoose.Schema.Types.Mixed, default: {} }
     }
   ],
+
+  proctoringSummary: {
+    faceDetectionCount: { type: Number, default: 0 },
+    warningCount: { type: Number, default: 0 },
+    alertCount: { type: Number, default: 0 },
+    criticalCount: { type: Number, default: 0 },
+    lastUpdatedAt: { type: Date, default: null }
+  },
+
+  interviewSnapshot: {
+    imageData: { type: String, default: null },
+    capturedAt: { type: Date, default: null }
+  },
   
   status: { 
     type: String, 
