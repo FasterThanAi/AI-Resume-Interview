@@ -511,8 +511,16 @@ app.post('/api/interview/chat', async (req, res) => {
       console.log(`🤖 INITIALIZING PRE-GENERATION FOR ${candidate.name}`);
       console.log(`======================================`);
       
-      const generationPrompt = `You are an expert HR Technical Interviewer. 
-Based on this resume, generate exactly ${GENERATED_INTERVIEW_QUESTION_COUNT} personalized, highly technical interview questions to ask the candidate.
+      const generationPrompt = `You are an expert HR Technical Interviewer.
+Based on this resume, generate exactly ${GENERATED_INTERVIEW_QUESTION_COUNT} concise, resume-based technical interview questions.
+
+Rules:
+- Each question must be directly based on a skill, project, internship, tool, or achievement mentioned in the resume.
+- Keep each question short, specific, and to the point.
+- Use exactly one sentence per question.
+- Do not ask for a general introduction or background.
+- Do not repeat the same topic in multiple questions.
+
 Return ONLY a valid JSON array of ${GENERATED_INTERVIEW_QUESTION_COUNT} strings and nothing else.
 Example: ${JSON.stringify(Array.from({ length: GENERATED_INTERVIEW_QUESTION_COUNT }, (_, index) => `Q${index + 1}`))}
 
@@ -545,9 +553,9 @@ ${shortResume}`;
       } catch (err) {
         console.error("Failed to generate questions:", err.message);
         candidate.preGeneratedQuestions = [
-          "Can you describe your technical background?",
-          "What is the most complex bug you've recently solved?",
-          "How do you ensure code quality in your projects?"
+          "Which project on your resume best shows your strongest technical contribution?",
+          "What was the hardest technical problem you solved in that project?",
+          "Which tool on your resume are you most confident using, and why?"
         ].slice(0, GENERATED_INTERVIEW_QUESTION_COUNT);
       }
 
