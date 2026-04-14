@@ -7,6 +7,7 @@ import {
   Briefcase,
   Building2,
   Clock,
+  Mail,
   ShieldCheck,
   Sparkles,
   Star,
@@ -55,6 +56,8 @@ export function JobBoard() {
     { icon: Users, label: 'Candidate Flow', value: '24h', note: 'Fast application review and routing' },
     { icon: Star, label: 'AI Matching', value: '94%', note: 'Refined resume-to-role qualification scoring' }
   ];
+
+  const getCompanyName = (job) => job.companyName || 'Independent Hiring Team';
 
   return (
     <div className="page-shell bg-hero">
@@ -226,6 +229,33 @@ export function JobBoard() {
                       <h3 className="text-2xl font-bold leading-tight text-foreground">
                         {job.title}
                       </h3>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span
+                          className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold"
+                          style={{
+                            color: 'var(--warning)',
+                            borderColor: 'rgba(var(--warning-rgb),0.28)',
+                            background: 'rgba(var(--warning-rgb),0.12)'
+                          }}
+                        >
+                          <Building2 className="h-3.5 w-3.5" />
+                          {getCompanyName(job)}
+                        </span>
+                        {job.hrEmail && (
+                          <span
+                            className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold"
+                            style={{
+                              color: 'var(--info)',
+                              borderColor: 'rgba(var(--info-rgb),0.28)',
+                              background: 'rgba(var(--info-rgb),0.12)'
+                            }}
+                          >
+                            <Mail className="h-3.5 w-3.5" />
+                            {job.hrEmail}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 

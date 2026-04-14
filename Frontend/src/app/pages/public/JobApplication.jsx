@@ -5,6 +5,7 @@ import { api } from '../../services/api';
 import {
   ArrowLeft,
   Briefcase,
+  Building2,
   CheckCircle2,
   FileText,
   Loader2,
@@ -67,6 +68,8 @@ export function JobApplication() {
     }
   };
 
+  const interviewLinkSent = Boolean(result?.message?.toLowerCase().includes('emailed'));
+
   if (loading) {
     return (
       <div className="page-shell bg-hero flex min-h-screen items-center justify-center px-4">
@@ -121,14 +124,14 @@ export function JobApplication() {
 
           <h2 className="text-4xl font-bold text-foreground">Application Sent</h2>
           <p className="mt-4 text-base leading-8 text-muted-foreground">
-            Your profile has been submitted successfully. If shortlisted, a secure interview link will be sent to your inbox.
+            {result.message || 'Your profile has been submitted successfully.'}
           </p>
 
           <div className="mx-auto mt-8 grid max-w-xl gap-4 sm:grid-cols-3">
             {[
+              { icon: Building2, label: 'Company', copy: job.companyName || 'Independent Hiring Team' },
               { icon: Mail, label: 'Inbox', copy: formData.email },
-              { icon: FileText, label: 'Resume', copy: formData.resume?.name || 'Uploaded PDF' },
-              { icon: Wand2, label: 'Status', copy: 'Under AI review' }
+              { icon: Wand2, label: 'Contact', copy: job.hrEmail || 'Managed by hiring team' }
             ].map(({ icon: Icon, label, copy }) => (
               <div key={label} className="metric-tile rounded-[1.4rem] p-4">
                 <Icon className="mb-3 h-4 w-4 text-[var(--info)]" />
@@ -140,8 +143,17 @@ export function JobApplication() {
 
           <div className="mt-8 rounded-[1.6rem] border border-white/8 bg-white/4 p-5 text-left">
             <p className="text-sm leading-7 text-muted-foreground">
-              We&apos;ve sent a secure magic link to <span className="font-semibold text-foreground">{formData.email}</span>.
-              Click the link in the email to start your AI-conducted technical interview.
+              {interviewLinkSent ? (
+                <>
+                  We&apos;ve sent a secure magic link to <span className="font-semibold text-foreground">{formData.email}</span>.
+                  Click the link in the email to start your AI-conducted technical interview.
+                </>
+              ) : (
+                <>
+                  The <span className="font-semibold text-foreground">{job.companyName || 'hiring'}</span> team will review your resume first.
+                  If you clear the ATS threshold, the interview link will be sent to <span className="font-semibold text-foreground">{formData.email}</span>.
+                </>
+              )}
             </p>
           </div>
 
@@ -209,6 +221,33 @@ export function JobApplication() {
                     <h2 className="text-xl font-bold text-foreground">{job.title}</h2>
                     <p className="mt-2 text-sm leading-7 text-muted-foreground">{job.description}</p>
                   </div>
+                </div>
+
+                <div className="mb-4 flex flex-wrap gap-2">
+                  <span
+                    className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold"
+                    style={{
+                      color: 'var(--warning)',
+                      borderColor: 'rgba(var(--warning-rgb),0.28)',
+                      background: 'rgba(var(--warning-rgb),0.12)'
+                    }}
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                    {job.companyName || 'Independent Hiring Team'}
+                  </span>
+                  {job.hrEmail && (
+                    <span
+                      className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold"
+                      style={{
+                        color: 'var(--info)',
+                        borderColor: 'rgba(var(--info-rgb),0.28)',
+                        background: 'rgba(var(--info-rgb),0.12)'
+                      }}
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      {job.hrEmail}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-2">

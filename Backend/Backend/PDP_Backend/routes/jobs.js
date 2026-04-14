@@ -3,9 +3,41 @@ const router = express.Router();
 const Job = require('../models/Job');
 // Import the Candidate model at the very top of routes/jobs.js
 const Candidate = require('../models/Candidate');
+const HRAdmin = require('../models/HRAdmin');
 
 // 1. Import your bouncer (Middleware)
 const verifyToken = require('../middleware/verifyToken'); 
+
+function normalizeStringArray(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    return value.split(',').map((item) => item.trim()).filter(Boolean);
+  }
+
+  return [];
+}
+
+function formatJobForClient(jobDoc) {
+  const job = typeof jobDoc.toObject === 'function' ? jobDoc.toObject() : jobDoc;
+  const owner =
+    job.adminId && typeof job.adminId === 'object' && !Array.isArray(job.adminId)
+      ? job.adminId
+      : null;
+
+  return {
+    ...job,
+    adminId: owner?._id || job.adminId,
+    companyName: job.companyName || owner?.companyName || 'Independent Hiring Team',
+    hrEmail: job.hrEmail || owner?.email || null
+  };
+}
+
+async function getOwnedJob(jobId, adminId) {
+  return Job.findOne({ _id: jobId, adminId });
+}
 
 // 2. The POST route to create a new job
 router.post('/', verifyToken, async (req, res) => {
@@ -14,16 +46,23 @@ router.post('/', verifyToken, async (req, res) => {
       return res.status(400).json({ error: "Title and description are required." });
     }
 
+    const admin = await HRAdmin.findById(req.admin.adminId).select('companyName email');
+    if (!admin) {
+      return res.status(404).json({ error: "HR Admin account not found." });
+    }
+
     const newJob = new Job({
       title: req.body.title,
       description: req.body.description,
-      requiredSkills: req.body.requiredSkills || [],
-      interviewTopics: req.body.interviewTopics || [],
+      requiredSkills: normalizeStringArray(req.body.requiredSkills),
+      interviewTopics: normalizeStringArray(req.body.interviewTopics),
+      companyName: admin.companyName || null,
+      hrEmail: admin.email || null,
       adminId: req.admin.adminId // Safely grabbing from the verified cookie
     });
 
     await newJob.save();
-    res.status(201).json({ message: "Job successfully created!", job: newJob });
+    res.status(201).json({ message: "Job successfully created!", job: formatJobForClient(newJob) });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to create job." });
@@ -33,8 +72,10 @@ router.post('/', verifyToken, async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     // .sort({ createdAt: -1 }) puts the newest jobs at the top
-    const jobs = await Job.find().sort({ createdAt: -1 });
-    res.status(200).json(jobs);
+    const jobs = await Job.find()
+      .populate('adminId', 'companyName email')
+      .sort({ createdAt: -1 });
+    res.status(200).json(jobs.map(formatJobForClient));
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch jobs." });
   }
@@ -46,11 +87,14 @@ router.get('/stats/dashboard', verifyToken, async (req, res) => {
     const adminId = req.admin.adminId;
 
     // 1. Find all jobs created by this specific HR Admin
-    const myJobs = await Job.find({ adminId: adminId });
+    const myJobs = await Job.find({ adminId: adminId }).sort({ createdAt: -1 });
     const jobIds = myJobs.map(job => job._id);
+    const jobTitleMap = new Map(
+      myJobs.map((job) => [job._id.toString(), { title: job.title, companyName: job.companyName }])
+    );
 
     // 2. Find all candidates who applied to ANY of those jobs
-    const candidates = await Candidate.find({ appliedJobId: { $in: jobIds } });
+    const candidates = await Candidate.find({ appliedJobId: { $in: jobIds } }).sort({ appliedAt: -1 });
 
     // 3. Calculate the stats
     const totalJobs = myJobs.length;
@@ -68,7 +112,14 @@ router.get('/stats/dashboard', verifyToken, async (req, res) => {
       totalJobs,
       totalApplicants,
       averageMatchScore: avgScore,
-      recentActivity: candidates.slice(-5) // Send the 5 most recent applicants
+      recentActivity: candidates.slice(0, 5).map((candidate) => {
+        const linkedJob = jobTitleMap.get(candidate.appliedJobId.toString());
+        return {
+          ...candidate.toObject(),
+          jobTitle: linkedJob?.title || null,
+          companyName: linkedJob?.companyName || null
+        };
+      })
     });
 
   } catch (error) {
@@ -77,14 +128,28 @@ router.get('/stats/dashboard', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/jobs/mine - Fetch only jobs owned by the logged-in HR admin
+router.get('/mine', verifyToken, async (req, res) => {
+  try {
+    const jobs = await Job.find({ adminId: req.admin.adminId })
+      .populate('adminId', 'companyName email')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(jobs.map(formatJobForClient));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch your jobs." });
+  }
+});
+
 // GET /api/jobs/:jobId - Fetch a single job's details
 router.get('/:jobId', async (req, res) => {
   try {
-    const job = await Job.findById(req.params.jobId);
+    const job = await Job.findById(req.params.jobId).populate('adminId', 'companyName email');
     if (!job) {
       return res.status(404).json({ error: "Job not found." });
     }
-    res.status(200).json(job);
+    res.status(200).json(formatJobForClient(job));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to fetch job details." });
@@ -94,6 +159,11 @@ router.get('/:jobId', async (req, res) => {
 router.get('/:jobId/candidates', verifyToken, async (req, res) => {
   try {
     const { jobId } = req.params;
+    const ownedJob = await getOwnedJob(jobId, req.admin.adminId);
+
+    if (!ownedJob) {
+      return res.status(403).json({ error: "Unauthorized to view candidates for this job." });
+    }
 
     // Find all candidates who applied for this specific job
     // .sort({ atsMatchScore: -1 }) puts the highest scores at the very top!
@@ -118,13 +188,39 @@ router.put('/:jobId', verifyToken, async (req, res) => {
       return res.status(403).json({ error: "Unauthorized to edit this job." });
     }
 
-    // Update the job with new data
+    const admin = await HRAdmin.findById(req.admin.adminId).select('companyName email');
+    if (!admin) {
+      return res.status(404).json({ error: "HR Admin account not found." });
+    }
+
+    // Only update fields that were actually submitted.
+    const allowedUpdates = {
+      companyName: admin.companyName || null,
+      hrEmail: admin.email || null
+    };
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'title')) {
+      allowedUpdates.title = req.body.title;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'description')) {
+      allowedUpdates.description = req.body.description;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'requiredSkills')) {
+      allowedUpdates.requiredSkills = normalizeStringArray(req.body.requiredSkills);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'interviewTopics')) {
+      allowedUpdates.interviewTopics = normalizeStringArray(req.body.interviewTopics);
+    }
+
     const updatedJob = await Job.findByIdAndUpdate(
       req.params.jobId, 
-      { $set: req.body }, 
+      { $set: allowedUpdates }, 
       { new: true }
     );
-    res.status(200).json({ message: "Job updated!", job: updatedJob });
+    res.status(200).json({ message: "Job updated!", job: formatJobForClient(updatedJob) });
   } catch (error) {
     res.status(500).json({ error: "Failed to update job." });
   }
@@ -150,6 +246,11 @@ router.delete('/:jobId', verifyToken, async (req, res) => {
 router.delete('/:jobId/candidates/:candidateId', verifyToken, async (req, res) => {
   try {
     const { jobId, candidateId } = req.params;
+    const ownedJob = await getOwnedJob(jobId, req.admin.adminId);
+
+    if (!ownedJob) {
+      return res.status(403).json({ error: "Unauthorized to manage candidates for this job." });
+    }
 
     // Confirm the candidate actually belongs to this job (prevent cross-job deletion)
     const candidate = await Candidate.findOne({ _id: candidateId, appliedJobId: jobId });

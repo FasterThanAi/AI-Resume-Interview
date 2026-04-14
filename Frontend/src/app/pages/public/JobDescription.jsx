@@ -9,7 +9,7 @@ import {
   Calendar,
   CheckCircle,
   FileText,
-  MapPin,
+  Mail,
   Sparkles,
   Tag,
   Wand2,
@@ -129,8 +129,8 @@ export function JobDescription() {
 
               <div className="grid gap-4 sm:grid-cols-3">
                 {[
-                  { icon: Building2, label: 'Team', value: 'RecruitAI Global' },
-                  { icon: MapPin, label: 'Work Mode', value: 'Remote / Hybrid' },
+                  { icon: Building2, label: 'Company', value: job.companyName || 'Independent Hiring Team' },
+                  { icon: Mail, label: 'Recruiter Email', value: job.hrEmail || 'Shared during review' },
                   { icon: Calendar, label: 'Posted', value: formatDate(job.createdAt) }
                 ].map(({ icon: Icon, label, value }) => (
                   <div key={label} className="metric-tile rounded-[1.35rem] p-4">
@@ -166,6 +166,42 @@ export function JobDescription() {
                     <p className="text-sm leading-6 text-foreground">{item}</p>
                   </div>
                 ))}
+              </div>
+
+              <div
+                className="mt-6 rounded-[1.35rem] border p-4"
+                style={{
+                  borderColor: 'rgba(var(--warning-rgb),0.24)',
+                  background: 'linear-gradient(135deg, rgba(var(--warning-rgb),0.12) 0%, rgba(var(--info-rgb),0.08) 100%)'
+                }}
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Hiring Contact</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span
+                    className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold"
+                    style={{
+                      color: 'var(--warning)',
+                      borderColor: 'rgba(var(--warning-rgb),0.28)',
+                      background: 'rgba(var(--warning-rgb),0.12)'
+                    }}
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                    {job.companyName || 'Independent Hiring Team'}
+                  </span>
+                  {job.hrEmail && (
+                    <span
+                      className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold"
+                      style={{
+                        color: 'var(--info)',
+                        borderColor: 'rgba(var(--info-rgb),0.28)',
+                        background: 'rgba(var(--info-rgb),0.12)'
+                      }}
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      {job.hrEmail}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <button

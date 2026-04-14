@@ -21,9 +21,8 @@ export const api = {
         return response.data;
     },
     async hrLogout() {
-        // Backend does not have an explicit logout route, so we clear frontend state/cookies
-        document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-        return { success: true };
+        const response = await apiClient.post('/api/auth/logout');
+        return response.data;
     },
     async hrForgotPassword(email) {
         const response = await apiClient.post('/api/auth/forgot-password', { email });
@@ -46,6 +45,10 @@ export const api = {
     // Job APIs
     async getJobs() {
         const response = await apiClient.get('/api/jobs');
+        return response.data;
+    },
+    async getMyJobs() {
+        const response = await apiClient.get('/api/jobs/mine');
         return response.data;
     },
     async getJobById(jobId) {

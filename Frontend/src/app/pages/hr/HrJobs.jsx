@@ -31,7 +31,7 @@ export function HrJobs() {
 
   const loadJobs = async () => {
     setLoading(true);
-    try { setJobs(await api.getJobs()); }
+    try { setJobs(await api.getMyJobs()); }
     catch { toast.error('Failed to load jobs'); }
     finally { setLoading(false); }
   };
