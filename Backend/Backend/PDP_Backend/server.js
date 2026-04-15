@@ -151,12 +151,18 @@ app.post('/api/upload-resume',uploadLimiter, upload.single('resume'), async (req
 
     // 4. Send the Magic Link via Email ONLY if they passed
     if (aiScore >= 50) {
-      // The frontend is actually running on port 3000, not 5173!
-      const interviewUrl = `http://localhost:3000/interview/${secureToken}`;
+      const clientUrl = (process.env.CLIENT_URL || 'http://localhost:3000').replace(/\/$/, '');
+      const interviewUrl = `${clientUrl}/interview/${secureToken}`;
+
+      console.log('Preparing ATS interview invite email:', {
+        to: newCandidate.email,
+        candidateId: String(newCandidate._id),
+        interviewUrl
+      });
       
       const mailOptions = {
-        from: `"HireAI" <${process.env.SMTP_USER || process.env.SENDER_EMAIL}>`,
-        replyTo: process.env.SENDER_EMAIL || process.env.SMTP_USER,
+        from: `"${transporter.senderName}" <${transporter.senderEmail}>`,
+        replyTo: transporter.senderEmail,
         to: newCandidate.email, 
         subject: `HireAI Interview Invitation - ${jobExists.title}`,
         text: `Hello ${newCandidate.name},\n\nCongratulations. You have cleared the ATS screening for ${jobExists.title}.\n\nUse this secure interview link to start your HireAI interview:\n${interviewUrl}\n\nBest regards,\n${jobExists.companyName || 'Hiring Team'}\nHireAI`
@@ -166,7 +172,9 @@ app.post('/api/upload-resume',uploadLimiter, upload.single('resume'), async (req
       console.log('ATS interview invite email sent:', {
         to: newCandidate.email,
         candidateId: String(newCandidate._id),
+        interviewUrl,
         messageId: mailInfo.messageId,
+        response: mailInfo.response,
         accepted: mailInfo.accepted,
         rejected: mailInfo.rejected
       });

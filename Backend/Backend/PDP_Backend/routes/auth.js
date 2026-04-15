@@ -126,8 +126,8 @@ router.post('/forgot-password', async (req, res) => {
     const resetUrl = `${clientUrl}/hr/reset-password/${token}`;
     
     const mailOptions = {
-      from: `"HireAI" <${process.env.SMTP_USER || process.env.SENDER_EMAIL}>`,
-      replyTo: process.env.SENDER_EMAIL || process.env.SMTP_USER,
+      from: `"${transporter.senderName}" <${transporter.senderEmail}>`,
+      replyTo: transporter.senderEmail,
       to: admin.email,
       subject: "HireAI Password Reset Request",
       text: `You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n` +

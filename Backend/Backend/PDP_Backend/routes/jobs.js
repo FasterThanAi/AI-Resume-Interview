@@ -226,8 +226,8 @@ router.post('/:jobId/candidates/:candidateId/technical-invite', verifyToken, asy
     const formattedSchedule = formatScheduledDateTime(scheduledAt);
 
     const mailOptions = {
-      from: `"HireAI" <${process.env.SMTP_USER || process.env.SENDER_EMAIL}>`,
-      replyTo: recruiterEmail || process.env.SENDER_EMAIL || process.env.SMTP_USER,
+      from: `"${transporter.senderName}" <${transporter.senderEmail}>`,
+      replyTo: recruiterEmail || transporter.senderEmail,
       to: candidate.email,
       subject: `HireAI Technical Round Invitation - ${ownedJob.title}`,
       text:
