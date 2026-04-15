@@ -15,7 +15,7 @@ export function ProtectedRoute({ children }) {
   }, []);
 
   if (isAuthenticated === null) {
-    return <LoadingSpinner message="Verifying secure access..." />;
+    return <LoadingSpinner message="Checking HR session..." />;
   }
 
   if (!isAuthenticated) {

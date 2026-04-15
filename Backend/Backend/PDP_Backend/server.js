@@ -143,7 +143,8 @@ app.post('/api/upload-resume',uploadLimiter, upload.single('resume'), async (req
       appliedJobId: req.body.jobId, 
       resumeText: extractedText,
       interviewToken: secureToken, // undefined if < 50
-      atsMatchScore: aiScore
+      atsMatchScore: aiScore,
+      status: aiScore >= 50 ? 'Shortlisted' : 'Applied'
     });
 
     await newCandidate.save();
@@ -154,16 +155,24 @@ app.post('/api/upload-resume',uploadLimiter, upload.single('resume'), async (req
       const interviewUrl = `http://localhost:3000/interview/${secureToken}`;
       
       const mailOptions = {
-        from: `"AI Recruitment Team" <${process.env.SENDER_EMAIL}>`,
+        from: `"HireAI" <${process.env.SMTP_USER || process.env.SENDER_EMAIL}>`,
+        replyTo: process.env.SENDER_EMAIL || process.env.SMTP_USER,
         to: newCandidate.email, 
-        subject: `Your AI Technical Interview - ${jobExists.title}`,
-        text: `Congratulations! Here is your secure interview link:\n\n${interviewUrl}`
+        subject: `HireAI Interview Invitation - ${jobExists.title}`,
+        text: `Hello ${newCandidate.name},\n\nCongratulations. You have cleared the ATS screening for ${jobExists.title}.\n\nUse this secure interview link to start your HireAI interview:\n${interviewUrl}\n\nBest regards,\n${jobExists.companyName || 'Hiring Team'}\nHireAI`
       };
 
-      await transporter.sendMail(mailOptions);
+      const mailInfo = await transporter.sendMail(mailOptions);
+      console.log('ATS interview invite email sent:', {
+        to: newCandidate.email,
+        candidateId: String(newCandidate._id),
+        messageId: mailInfo.messageId,
+        accepted: mailInfo.accepted,
+        rejected: mailInfo.rejected
+      });
 
       res.status(201).json({
-        message: "Resume successfully parsed, saved, and Magic Link emailed!",
+        message: "Resume successfully parsed, saved, and interview link emailed.",
         candidateId: newCandidate._id
       });
     } else {
@@ -511,13 +520,17 @@ app.post('/api/interview/chat', async (req, res) => {
       console.log(`🤖 INITIALIZING PRE-GENERATION FOR ${candidate.name}`);
       console.log(`======================================`);
       
-      const generationPrompt = `You are an expert HR Technical Interviewer.
-Based on this resume, generate exactly ${GENERATED_INTERVIEW_QUESTION_COUNT} concise, resume-based technical interview questions.
+      const generationPrompt = `You are an expert HR technical interviewer.
+Based on this resume, generate exactly ${GENERATED_INTERVIEW_QUESTION_COUNT} medium-length, resume-based technical interview questions.
 
 Rules:
 - Each question must be directly based on a skill, project, internship, tool, or achievement mentioned in the resume.
-- Keep each question short, specific, and to the point.
+- Each question must be exactly one sentence and should feel natural when spoken aloud in a real interview.
+- Keep each question moderately detailed: not too short, not too long, and ideally around 16 to 28 words.
+- Include enough context from the resume so the candidate knows exactly which project, tool, or experience you are referring to.
+- Ask one clear technical follow-up in each question.
 - Use exactly one sentence per question.
+- Do not make the question vague, overly generic, or like a long paragraph.
 - Do not ask for a general introduction or background.
 - Do not repeat the same topic in multiple questions.
 
@@ -553,9 +566,9 @@ ${shortResume}`;
       } catch (err) {
         console.error("Failed to generate questions:", err.message);
         candidate.preGeneratedQuestions = [
-          "Which project on your resume best shows your strongest technical contribution?",
-          "What was the hardest technical problem you solved in that project?",
-          "Which tool on your resume are you most confident using, and why?"
+          "Looking at the projects on your resume, which one best demonstrates your strongest technical contribution, and what exactly did you build in it?",
+          "In that same project, what was the most difficult technical problem you solved, and how did you approach the solution?",
+          "Among the technologies listed on your resume, which one are you most confident using today, and how have you applied it in practice?"
         ].slice(0, GENERATED_INTERVIEW_QUESTION_COUNT);
       }
 

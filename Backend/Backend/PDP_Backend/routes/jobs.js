@@ -4,9 +4,11 @@ const Job = require('../models/Job');
 // Import the Candidate model at the very top of routes/jobs.js
 const Candidate = require('../models/Candidate');
 const HRAdmin = require('../models/HRAdmin');
+const transporter = require('../utils/email');
 
 // 1. Import your bouncer (Middleware)
 const verifyToken = require('../middleware/verifyToken'); 
+const TECHNICAL_INTERVIEW_THRESHOLD = 15;
 
 function normalizeStringArray(value) {
   if (Array.isArray(value)) {
@@ -37,6 +39,13 @@ function formatJobForClient(jobDoc) {
 
 async function getOwnedJob(jobId, adminId) {
   return Job.findOne({ _id: jobId, adminId });
+}
+
+function formatScheduledDateTime(dateValue) {
+  return new Date(dateValue).toLocaleString('en-US', {
+    dateStyle: 'full',
+    timeStyle: 'short'
+  });
 }
 
 // 2. The POST route to create a new job
@@ -174,6 +183,98 @@ router.get('/:jobId/candidates', verifyToken, async (req, res) => {
     res.status(200).json(candidates);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch candidates." });
+  }
+});
+
+// POST /api/jobs/:jobId/candidates/:candidateId/technical-invite - Accept candidate for company technical round
+router.post('/:jobId/candidates/:candidateId/technical-invite', verifyToken, async (req, res) => {
+  try {
+    const { jobId, candidateId } = req.params;
+    const ownedJob = await getOwnedJob(jobId, req.admin.adminId);
+
+    if (!ownedJob) {
+      return res.status(403).json({ error: "Unauthorized to manage candidates for this job." });
+    }
+
+    const candidate = await Candidate.findOne({ _id: candidateId, appliedJobId: jobId });
+    if (!candidate) {
+      return res.status(404).json({ error: "Candidate not found for this job." });
+    }
+
+    if (candidate.evaluationStatus !== 'complete' || candidate.interviewScore === null || candidate.interviewScore === undefined) {
+      return res.status(400).json({ error: "This candidate has not completed the AI interview evaluation yet." });
+    }
+
+    if (candidate.interviewScore < TECHNICAL_INTERVIEW_THRESHOLD) {
+      return res.status(400).json({ error: `Only candidates with interview scores of ${TECHNICAL_INTERVIEW_THRESHOLD} or above can be accepted for the company technical round.` });
+    }
+
+    const scheduledAtRaw = typeof req.body.scheduledAt === 'string' ? req.body.scheduledAt.trim() : '';
+    const location = typeof req.body.location === 'string' ? req.body.location.trim() : '';
+
+    if (!scheduledAtRaw || !location) {
+      return res.status(400).json({ error: "Interview date/time and place are required." });
+    }
+
+    const scheduledAt = new Date(scheduledAtRaw);
+    if (Number.isNaN(scheduledAt.getTime())) {
+      return res.status(400).json({ error: "A valid interview date and time are required." });
+    }
+
+    const companyName = ownedJob.companyName || 'Hiring Team';
+    const recruiterEmail = ownedJob.hrEmail || null;
+    const formattedSchedule = formatScheduledDateTime(scheduledAt);
+
+    const mailOptions = {
+      from: `"HireAI" <${process.env.SMTP_USER || process.env.SENDER_EMAIL}>`,
+      replyTo: recruiterEmail || process.env.SENDER_EMAIL || process.env.SMTP_USER,
+      to: candidate.email,
+      subject: `HireAI Technical Round Invitation - ${ownedJob.title}`,
+      text:
+        `Hello ${candidate.name},\n\n` +
+        `Congratulations. You have been selected for the company technical interview round for the role of ${ownedJob.title}.\n\n` +
+        `Company: ${companyName}\n` +
+        `Date and Time: ${formattedSchedule}\n` +
+        `Place: ${location}\n` +
+        `${recruiterEmail ? `Recruiter Contact: ${recruiterEmail}\n` : ''}\n` +
+        `Please arrive on time and contact the recruiter if you need any clarification.\n\n` +
+        `Best regards,\n${companyName}\nHireAI`
+    };
+
+    const mailInfo = await transporter.sendMail(mailOptions);
+    console.log('Technical interview invitation email sent:', {
+      to: candidate.email,
+      candidateId: String(candidate._id),
+      jobId: String(ownedJob._id),
+      messageId: mailInfo.messageId,
+      accepted: mailInfo.accepted,
+      rejected: mailInfo.rejected
+    });
+
+    const updatedCandidate = await Candidate.findByIdAndUpdate(
+      candidate._id,
+      {
+        $set: {
+          status: 'Technical Interview Scheduled',
+          technicalInterviewInvitation: {
+            scheduledAt,
+            location,
+            invitedAt: new Date(),
+            companyName,
+            recruiterEmail
+          }
+        }
+      },
+      { new: true }
+    ).select('-resumeText');
+
+    res.status(200).json({
+      message: "Technical interview invitation sent successfully.",
+      candidate: updatedCandidate
+    });
+  } catch (error) {
+    console.error("Technical interview invitation error:", error.message);
+    res.status(500).json({ error: "Failed to send the technical interview invitation." });
   }
 });
 

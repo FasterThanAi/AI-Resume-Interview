@@ -67,10 +67,18 @@ const CandidateSchema = new mongoose.Schema({
     imageData: { type: String, default: null },
     capturedAt: { type: Date, default: null }
   },
+
+  technicalInterviewInvitation: {
+    scheduledAt: { type: Date, default: null },
+    location: { type: String, default: null },
+    invitedAt: { type: Date, default: null },
+    companyName: { type: String, default: null },
+    recruiterEmail: { type: String, default: null }
+  },
   
   status: { 
     type: String, 
-    enum: ['Applied', 'Shortlisted', 'Rejected'], 
+    enum: ['Applied', 'Shortlisted', 'Technical Interview Scheduled', 'Rejected'], 
     default: 'Applied' 
   },
   

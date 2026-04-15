@@ -32,7 +32,7 @@ export function HrJobs() {
   const loadJobs = async () => {
     setLoading(true);
     try { setJobs(await api.getMyJobs()); }
-    catch { toast.error('Failed to load jobs'); }
+    catch (error) { toast.error(error.response?.data?.error || 'Unable to load the jobs in this HR workspace.'); }
     finally { setLoading(false); }
   };
 
@@ -63,33 +63,33 @@ export function HrJobs() {
       };
       if (editingJob) {
         await api.updateJob(editingJob._id, payload);
-        toast.success('Job updated successfully');
+        toast.success('Job post updated successfully.');
       } else {
         await api.createJob(payload);
-        toast.success('Job created successfully');
+        toast.success('Job post published successfully.');
       }
       setDialogOpen(false);
       loadJobs();
-    } catch {
-      toast.error('Failed to save job');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Unable to save the job post. Please review the details and try again.');
     }
   };
 
-  const handleDelete = async (jobId) => {
-    if (!confirm('Are you sure you want to delete this job?')) return;
+  const handleDelete = async (job) => {
+    if (!confirm(`Delete "${job.title}"?\n\nThis will remove the public job post from your HR workspace.`)) return;
     try {
-      await api.deleteJob(jobId);
-      toast.success('Job deleted');
+      await api.deleteJob(job._id);
+      toast.success('Job post deleted.');
       loadJobs();
-    } catch {
-      toast.error('Failed to delete job');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Unable to delete the selected job post.');
     }
   };
 
   const f = (k) => (e) => setFormData({ ...formData, [k]: e.target.value });
 
   if (loading) {
-    return <LoadingSpinner message="Loading jobs..." />;
+    return <LoadingSpinner message="Loading your job posts..." />;
   }
 
   return (
@@ -97,8 +97,8 @@ export function HrJobs() {
       <HrLayout
         active="jobs"
         eyebrow="Job Management"
-        title="Open roles"
-        subtitle="Create and maintain job postings with a more deliberate visual hierarchy while preserving the existing CRUD workflow."
+      title="Open roles"
+        subtitle="Create and manage the public job posts owned by your HR account. Candidate review and interview data remain private to this workspace."
         actions={(
           <motion.button
             type="button"
@@ -108,23 +108,23 @@ export function HrJobs() {
             className="btn-gradient flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold"
           >
             <Plus className="h-4 w-4" />
-            Create Job
+            Create Job Post
           </motion.button>
         )}
       >
         {jobs.length === 0 ? (
           <div className="empty-state flex min-h-[420px] flex-col items-center justify-center px-6 text-center">
             <Briefcase className="mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="text-2xl font-bold text-foreground">No jobs published yet</p>
+            <p className="text-2xl font-bold text-foreground">No job posts created yet</p>
             <p className="mt-3 max-w-md text-sm leading-7 text-muted-foreground">
-              Create your first job posting to begin collecting applicants and surface it on the public board.
+              Publish your first role to start collecting applications, ATS scores, interviews, and recruiter review data in this workspace.
             </p>
             <button
               type="button"
               onClick={() => openDialog()}
               className="btn-gradient mt-7 rounded-2xl px-5 py-3 text-sm font-semibold"
             >
-              Create Job
+              Create Job Post
             </button>
           </div>
         ) : (
@@ -149,7 +149,7 @@ export function HrJobs() {
 
                       <div className="min-w-0 flex-1">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <span className="section-kicker">Published Role</span>
+                          <span className="section-kicker">Live Job Post</span>
                           <span className="chip-sky">
                             <CalendarDays className="h-3 w-3" />
                             Posted {new Date(job.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -190,7 +190,7 @@ export function HrJobs() {
                       className="control-button control-button-secondary justify-center rounded-2xl px-4 py-3 text-sm"
                     >
                       <Users className="h-4 w-4" />
-                      Candidates
+                      View Candidates
                     </button>
                     <button
                       onClick={() => openDialog(job)}
@@ -200,7 +200,7 @@ export function HrJobs() {
                       Edit
                     </button>
                     <button
-                      onClick={() => handleDelete(job._id)}
+                      onClick={() => handleDelete(job)}
                       className="control-button justify-center rounded-2xl px-4 py-3 text-sm text-[var(--destructive)]"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -221,19 +221,21 @@ export function HrJobs() {
         >
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-foreground">
-              {editingJob ? 'Edit Job' : 'Create New Job'}
+              {editingJob ? 'Edit Job Post' : 'Create Job Post'}
             </DialogTitle>
             <DialogDescription className="text-sm leading-6 text-muted-foreground">
-              {editingJob ? 'Update the details below while preserving the existing job workflow.' : 'Fill in the details for a new job posting.'}
+              {editingJob
+                ? 'Update the role details below. Company name and recruiter email continue to come from your HR account.'
+                : 'Add the role details below. Company name and recruiter email are pulled automatically from your HR account and shown on the public role page.'}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="mt-3 space-y-5">
             {[
-              { key: 'title', label: 'Job Title', placeholder: 'e.g., Senior React Developer', type: 'input' },
-              { key: 'description', label: 'Job Description', placeholder: 'Detailed job description...', type: 'textarea' },
-              { key: 'requiredSkills', label: 'Required Skills (comma-separated)', placeholder: 'React, TypeScript, Node.js', type: 'input' },
-              { key: 'interviewTopics', label: 'Interview Topics (comma-separated)', placeholder: 'State Management, API Design', type: 'input' }
+              { key: 'title', label: 'Job Title', placeholder: 'e.g., Full-Stack Web Developer Intern', type: 'input' },
+              { key: 'description', label: 'Job Description', placeholder: 'Describe responsibilities, required experience, and what success looks like in this role.', type: 'textarea' },
+              { key: 'requiredSkills', label: 'Required Skills (comma-separated)', placeholder: 'React.js, Node.js, Express, MongoDB', type: 'input' },
+              { key: 'interviewTopics', label: 'Interview Focus Areas (comma-separated)', placeholder: 'REST APIs, State Management, Authentication', type: 'input' }
             ].map(({ key, label, placeholder, type }) => (
               <div key={key}>
                 <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -269,7 +271,7 @@ export function HrJobs() {
                 onClick={() => setDialogOpen(false)}
                 className="control-button control-button-ghost rounded-2xl px-5 py-3 text-sm"
               >
-                Cancel
+                Close
               </button>
               <motion.button
                 type="submit"
@@ -277,7 +279,7 @@ export function HrJobs() {
                 whileTap={{ scale: 0.98 }}
                 className="btn-gradient rounded-2xl px-5 py-3 text-sm font-semibold"
               >
-                {editingJob ? 'Update Job' : 'Create Job'}
+                {editingJob ? 'Save Changes' : 'Publish Job Post'}
               </motion.button>
             </div>
           </form>

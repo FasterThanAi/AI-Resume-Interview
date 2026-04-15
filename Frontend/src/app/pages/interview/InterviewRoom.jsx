@@ -47,7 +47,7 @@ export function InterviewRoom() {
       if (res.isValid) {
         setIsValid(true);
         setCandidateInfo(res);
-        setChatHistory([{ role: 'assistant', content: "Hello! I'm your automated technical assessor. Let's begin with an introduction. Can you tell me about your background and experience relevant to this position?" }]);
+        setChatHistory([{ role: 'assistant', content: "Hello. I'm your AI interviewer. We'll begin with a short introduction and then move into technical questions relevant to this role. Can you tell me about your background and experience relevant to this position?" }]);
         setQuestionCount(1);
       }
     } catch (e) { console.error(e); }
@@ -142,7 +142,7 @@ export function InterviewRoom() {
       <div className="text-center">
         <div className="inline-block w-10 h-10 rounded-full border-2 animate-spin"
           style={{ borderColor: 'var(--primary)', borderTopColor: 'transparent' }} />
-        <p className="mt-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>Verifying interview link…</p>
+        <p className="mt-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>Verifying secure interview access...</p>
       </div>
     </div>
   );
@@ -154,7 +154,7 @@ export function InterviewRoom() {
         <XCircle className="h-14 w-14 mx-auto mb-4" style={{ color: '#f87171' }} />
         <h2 className="text-xl font-bold mb-2" style={{ color: '#f87171' }}>Invalid Interview Link</h2>
         <p className="text-sm mb-6" style={{ color: 'var(--muted-foreground)' }}>
-          This interview link is invalid or has already been used.
+          This interview link is invalid, expired, or has already been used.
         </p>
         <button onClick={() => navigate('/jobs')}
           className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white btn-gradient">
@@ -179,7 +179,7 @@ export function InterviewRoom() {
                   : <XCircle className="h-10 w-10" style={{ color: '#f87171' }} />}
             </div>
             <h2 className="text-2xl font-bold mb-2" style={{ color: ok ? '#34d399' : '#f87171' }}>
-              {ok ? 'Interview Complete! 🎉' : 'Interview Terminated'}
+              {ok ? 'Interview Complete' : 'Interview Terminated'}
             </h2>
             {ok && (
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold"
@@ -215,7 +215,7 @@ export function InterviewRoom() {
           )}
 
           <p className="text-center text-sm mb-4" style={{ color: 'var(--muted-foreground)' }}>
-            HR will review your scores and contact you via email.
+            Recruiters will review your results and contact you using the email provided in your application.
           </p>
           <div className="text-center">
             <button onClick={() => navigate('/jobs')}
@@ -236,7 +236,7 @@ export function InterviewRoom() {
         style={{ background: 'var(--background)', borderColor: 'var(--border)' }}>
         <div>
           <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
-            Automated Technical Assessment
+            AI Interview Session
           </p>
           <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
             {candidateInfo?.candidateName} · {candidateInfo?.jobTitle}
@@ -250,7 +250,7 @@ export function InterviewRoom() {
           </span>
           <span className="text-xs px-3 py-1 rounded-full font-semibold"
             style={{ background: 'rgba(124,111,239,0.1)', color: '#a78bfa', border: '1px solid rgba(124,111,239,0.25)' }}>
-            Q {questionCount}/6
+            Question {questionCount}
           </span>
         </div>
       </header>
@@ -296,7 +296,7 @@ export function InterviewRoom() {
 
           {/* Rules */}
           <div className="rounded-xl border p-3 space-y-2" style={{ background: 'var(--muted)', borderColor: 'var(--border)' }}>
-            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Proctoring Rules</p>
+            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--muted-foreground)' }}>Interview Rules</p>
             {[
               { Icon: Eye,    text: 'Keep face visible' },
               { Icon: Users,  text: 'No other people' },
@@ -313,7 +313,7 @@ export function InterviewRoom() {
           {timerActive && (
             <div className="rounded-xl border p-3" style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.25)' }}>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold" style={{ color: '#fbbf24' }}>Time Left</span>
+                <span className="text-xs font-semibold" style={{ color: '#fbbf24' }}>Time Remaining</span>
                 <div className="flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" style={{ color: '#fbbf24' }} />
                   <span className="text-xl font-extrabold" style={{ color: '#fbbf24' }}>{timeRemaining}s</span>
@@ -330,7 +330,7 @@ export function InterviewRoom() {
           <div className="px-6 py-3 border-b flex-shrink-0"
             style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
             <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Interview Conversation</p>
-            <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Answer naturally. Paste is disabled.</p>
+            <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Answer naturally and submit each response when ready. Paste is disabled.</p>
           </div>
 
           {/* Messages */}
@@ -364,7 +364,7 @@ export function InterviewRoom() {
                           transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.15 }} />
                       ))}
                     </div>
-                    <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Thinking…</span>
+                    <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Preparing next question...</span>
                   </div>
                 </div>
               </div>
@@ -380,7 +380,7 @@ export function InterviewRoom() {
               onChange={(e) => setCurrentMessage(e.target.value)}
               onPaste={(e) => { e.preventDefault(); }}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-              placeholder="Type your answer here… (paste disabled)"
+              placeholder="Type your response here... (paste disabled)"
               disabled={waitingForAI || isInterviewComplete}
               className="flex-1 px-4 py-3 rounded-xl border text-sm transition-all disabled:opacity-50"
               style={{ background: 'var(--input-background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}

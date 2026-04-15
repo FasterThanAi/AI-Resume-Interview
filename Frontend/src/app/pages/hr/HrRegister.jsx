@@ -38,10 +38,10 @@ export function HrRegister() {
     setLoading(true);
     try {
       await api.hrRegister(formData.name, formData.email, formData.password, formData.companyName);
-      toast.success('Registration successful! Please login.');
+      toast.success('HR account created. Sign in to publish roles.');
       navigate('/hr/login');
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to register. Please try again.');
+      toast.error(error.response?.data?.error || 'Unable to create the HR account. Please review the details and try again.');
     } finally {
       setLoading(false);
     }
@@ -50,15 +50,15 @@ export function HrRegister() {
   return (
     <AuthShell
       badge="Create Account"
-      title="Set up your HR workspace"
-      subtitle="Register a secure admin account and step into the same hiring workflow with a more polished interface."
+      title="Create your HR workspace"
+      subtitle="Register a recruiter account linked to your company. Jobs, candidates, and review data in this workspace stay scoped to your HR account."
       icon={Building2}
       accent="var(--success)"
       backLabel="Back to Login"
       onBack={() => navigate('/hr/login')}
-      heroTitle="Bring your hiring pipeline into a cleaner operating system."
-      heroDescription="The registration behavior stays identical, but the experience now feels more like a premium SaaS onboarding surface than a basic form."
-      heroHighlights={['Fast account setup', 'Secure admin access', 'Unified job and candidate review']}
+      heroTitle="Create a company-linked recruiter workspace."
+      heroDescription="The company name and work email you register here are used to scope your HR portal and appear on public job posts candidates can review before applying."
+      heroHighlights={['Company-branded job posts', 'Private recruiter workspace', 'Secure sign-in']}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <InputField
@@ -94,7 +94,7 @@ export function HrRegister() {
             <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type={showPassword ? 'text' : 'password'}
-              placeholder="Minimum 6 characters"
+              placeholder="Create a password (minimum 6 characters)"
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               required
@@ -127,25 +127,25 @@ export function HrRegister() {
               >
                 <Sparkles className="h-4 w-4" />
               </motion.span>
-              Creating Account...
+              Creating secure workspace...
             </>
           ) : (
             <>
               <Building2 className="h-4 w-4" />
-              Register Account
+              Create HR Account
             </>
           )}
         </motion.button>
       </form>
 
       <div className="text-center text-sm text-muted-foreground">
-        Already have an account?{' '}
+        Already have recruiter access?{' '}
         <button
           type="button"
           onClick={() => navigate('/hr/login')}
           className="font-semibold text-[var(--primary)] transition-opacity hover:opacity-80"
         >
-          Log in
+          Sign in
         </button>
       </div>
     </AuthShell>

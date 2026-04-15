@@ -8,25 +8,25 @@ import {
 function StatusPill({ modelStatus }) {
   const statusMeta = {
     active: {
-      label: 'Monitoring Active',
+      label: 'Monitoring Running',
       color: 'var(--success)',
       bg: 'rgba(var(--success-rgb),0.12)',
       border: 'rgba(var(--success-rgb),0.24)'
     },
     loading: {
-      label: 'Loading Monitor',
+      label: 'Starting Monitor',
       color: 'var(--warning)',
       bg: 'rgba(var(--warning-rgb),0.12)',
       border: 'rgba(var(--warning-rgb),0.24)'
     },
     error: {
-      label: 'Monitor Degraded',
+      label: 'Monitoring Issue',
       color: 'var(--destructive)',
       bg: 'rgba(239,82,95,0.12)',
       border: 'rgba(239,82,95,0.24)'
     },
     idle: {
-      label: 'Monitor Idle',
+      label: 'Monitoring Paused',
       color: 'var(--muted-foreground)',
       bg: 'rgba(var(--foreground-rgb),0.06)',
       border: 'rgba(var(--foreground-rgb),0.12)'
@@ -61,7 +61,7 @@ export function ProctoringPanel({
             Interview Proctoring
           </p>
           <p className="mt-2 text-sm leading-7 text-muted-foreground">
-            Monitoring tab changes, missing faces, multiple faces, and camera positioning during the live session.
+            Browser and webcam checks recorded during the secure interview session, including tab switches, face visibility, and camera positioning.
           </p>
         </div>
         <StatusPill modelStatus={modelStatus} />
@@ -79,7 +79,7 @@ export function ProctoringPanel({
         <div className="metric-tile rounded-[1.3rem] p-4">
           <div className="flex items-center gap-2 text-[var(--warning)]">
             <Eye className="h-4 w-4" />
-            <span className="text-xs font-semibold uppercase tracking-[0.18em]">Gaze</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.18em]">Head Direction</span>
           </div>
           <p className="mt-3 text-lg font-semibold text-foreground">{analysis.lookingDirection || 'CENTER'}</p>
         </div>
@@ -97,7 +97,7 @@ export function ProctoringPanel({
         {[
           { label: 'Critical', value: counts.critical, color: 'var(--destructive)', bg: 'rgba(239,82,95,0.12)', border: 'rgba(239,82,95,0.24)' },
           { label: 'Warning', value: counts.warning, color: 'var(--warning)', bg: 'rgba(var(--warning-rgb),0.12)', border: 'rgba(var(--warning-rgb),0.24)' },
-          { label: 'Queued', value: queueStats.queued, color: 'var(--info)', bg: 'rgba(var(--info-rgb),0.12)', border: 'rgba(var(--info-rgb),0.24)' }
+          { label: 'Pending Sync', value: queueStats.queued, color: 'var(--info)', bg: 'rgba(var(--info-rgb),0.12)', border: 'rgba(var(--info-rgb),0.24)' }
         ].map((item) => (
           <span
             key={item.label}
@@ -116,7 +116,7 @@ export function ProctoringPanel({
 
         {recentEvents.length === 0 ? (
           <p className="mt-4 text-sm leading-7 text-muted-foreground">
-            No suspicious activity has been recorded yet.
+            No proctoring events have been stored for this session yet.
           </p>
         ) : (
           <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">

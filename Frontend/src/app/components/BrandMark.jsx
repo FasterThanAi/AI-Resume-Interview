@@ -3,8 +3,8 @@ import { Briefcase, Sparkles } from 'lucide-react';
 
 export function BrandMark({
   compact = false,
-  title = 'RecruitAI',
-  subtitle = 'AI Hiring Suite',
+  title = 'HireAI',
+  subtitle = 'AI Hiring Platform',
   align = 'left'
 }) {
   return (

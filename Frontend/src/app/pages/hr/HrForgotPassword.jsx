@@ -30,13 +30,13 @@ export function HrForgotPassword() {
     <AuthShell
       badge="Password Recovery"
       title="Reset your password"
-      subtitle="Request a new secure access link without changing the existing backend reset flow."
+      subtitle="Request a password reset email for the work account tied to your recruiter workspace."
       icon={KeyRound}
       backLabel="Back to Login"
       onBack={() => navigate('/hr/login')}
-      heroTitle="Recover access without losing momentum."
-      heroDescription="This screen keeps the same password reset behavior, but improves clarity, reassurance, and trust through stronger visual hierarchy."
-      heroHighlights={['Secure reset emails', 'Same backend flow', 'Cleaner recovery experience']}
+      heroTitle="Recover recruiter access securely."
+      heroDescription="We’ll send a secure reset link to the work email connected to your HR account so you can return to jobs and candidate review."
+      heroHighlights={['Work-email verification', 'Secure reset link', 'Fast return to hiring']}
     >
       {!success ? (
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -76,7 +76,7 @@ export function HrForgotPassword() {
             whileTap={{ scale: 0.98 }}
             className="btn-gradient w-full rounded-2xl px-6 py-3.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? 'Sending...' : 'Send Reset Link'}
+            {loading ? 'Sending reset email...' : 'Send Reset Link'}
           </motion.button>
         </form>
       ) : (
@@ -88,7 +88,7 @@ export function HrForgotPassword() {
           <CheckCircle2 className="mx-auto mb-4 h-11 w-11 text-[var(--success)]" />
           <h3 className="text-lg font-bold text-foreground">Check your email</h3>
           <p className="mt-3 text-sm leading-7 text-muted-foreground">
-            If an account exists for that email, a secure password reset link has been sent. Check spam or promotions if you do not see it right away.
+            If an HR account exists for <span className="font-semibold text-foreground">{email}</span>, a secure password reset link has been sent. Check spam or promotions if it does not arrive right away.
           </p>
         </motion.div>
       )}

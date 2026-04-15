@@ -40,16 +40,16 @@ export function HrLayout({
       <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col lg:flex-row lg:gap-5 lg:px-4 lg:py-4">
         <aside className="hidden lg:flex lg:w-[300px] lg:flex-col">
           <div className="surface-panel flex min-h-full flex-col rounded-[2rem] p-5">
-            <BrandMark subtitle="HR Control Center" />
+            <BrandMark subtitle="HR Workspace" />
 
             <div className="mt-8 rounded-[1.6rem] border border-white/8 bg-white/4 p-5">
               <span className="section-kicker mb-4">
                 <Sparkles className="h-3.5 w-3.5" />
-                Product Workspace
+                Recruiter Workspace
               </span>
-              <h2 className="text-2xl font-bold text-foreground">Operate your hiring pipeline with clarity.</h2>
+              <h2 className="text-2xl font-bold text-foreground">Manage your jobs and candidate review from one secure console.</h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Manage openings, review applicants, and stay close to live pipeline metrics from one polished workspace.
+                Track roles owned by your account, review ATS and interview results, and move quickly between publishing and evaluation.
               </p>
             </div>
 
@@ -70,12 +70,12 @@ export function HrLayout({
             <div className="mt-auto rounded-[1.4rem] border border-white/8 bg-white/4 p-4">
               <div className="mb-4 grid grid-cols-2 gap-3">
                 <div className="metric-tile rounded-2xl p-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Suite</p>
-                  <p className="mt-2 text-sm font-semibold text-foreground">RecruitAI</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Platform</p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">HireAI</p>
                 </div>
                 <div className="metric-tile rounded-2xl p-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Mode</p>
-                  <p className="mt-2 text-sm font-semibold text-foreground">HR Console</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Access</p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">Private HR</p>
                 </div>
               </div>
 
@@ -85,7 +85,7 @@ export function HrLayout({
                 className="control-button control-button-ghost w-full px-4 py-3 text-sm"
               >
                 <LogOut className="h-4 w-4" />
-                Logout
+                Sign Out
               </button>
             </div>
           </div>

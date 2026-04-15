@@ -26,6 +26,11 @@ export function JobDescription() {
 
   useEffect(() => { loadJob(); }, [jobId]);
 
+  const companyName = job?.companyName || 'Independent Hiring Team';
+  const recruiterEmail = job?.hrEmail || 'Recruiter contact not listed';
+  const requiredSkillCount = job?.requiredSkills?.length || 0;
+  const interviewTopicCount = job?.interviewTopics?.length || 0;
+
   const loadJob = async () => {
     setLoading(true);
     try {
@@ -51,7 +56,7 @@ export function JobDescription() {
             className="mx-auto h-12 w-12 animate-spin rounded-full border-2"
             style={{ borderColor: 'rgba(var(--primary-rgb), 0.28)', borderTopColor: 'var(--primary)' }}
           />
-          <p className="mt-4 text-sm text-muted-foreground">Loading position details...</p>
+          <p className="mt-4 text-sm text-muted-foreground">Loading job details...</p>
         </div>
       </div>
     );
@@ -64,7 +69,7 @@ export function JobDescription() {
           <Briefcase className="mx-auto mb-5 h-12 w-12 text-muted-foreground" />
           <h2 className="text-2xl font-bold text-foreground">Position Not Found</h2>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            The role you are trying to open may have been removed or is no longer available.
+            This role could not be loaded or may no longer be accepting applications.
           </p>
           <button
             onClick={() => navigate('/jobs')}
@@ -123,14 +128,14 @@ export function JobDescription() {
                   {job.title}
                 </h1>
                 <p className="max-w-2xl text-base leading-8 text-muted-foreground">
-                  Review the role, explore the interview focus areas, and move straight into a cleaner application experience when you're ready.
+                  Review responsibilities, {requiredSkillCount} required skill{requiredSkillCount === 1 ? '' : 's'}, and {interviewTopicCount} interview focus area{interviewTopicCount === 1 ? '' : 's'} before applying to {companyName}.
                 </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3">
                 {[
-                  { icon: Building2, label: 'Company', value: job.companyName || 'Independent Hiring Team' },
-                  { icon: Mail, label: 'Recruiter Email', value: job.hrEmail || 'Shared during review' },
+                  { icon: Building2, label: 'Company', value: companyName },
+                  { icon: Mail, label: 'Recruiter Email', value: recruiterEmail },
                   { icon: Calendar, label: 'Posted', value: formatDate(job.createdAt) }
                 ].map(({ icon: Icon, label, value }) => (
                   <div key={label} className="metric-tile rounded-[1.35rem] p-4">
@@ -148,18 +153,18 @@ export function JobDescription() {
                   <Briefcase className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Ready to apply?</p>
+                  <p className="text-sm font-semibold text-foreground">Ready to submit?</p>
                   <p className="text-sm leading-6 text-muted-foreground">
-                    Submit your resume and receive a secure next step if shortlisted.
+                    Send your resume to {companyName} for ATS screening and recruiter review.
                   </p>
                 </div>
               </div>
 
               <div className="space-y-3">
                 {[
-                  'Resume upload and parsing',
-                  'Automated ATS-style role matching',
-                  'Interview access via secure magic link'
+                  'PDF resume upload and parsing',
+                  'ATS match scoring against this job description',
+                  'Secure interview link if shortlisted'
                 ].map((item) => (
                   <div key={item} className="flex items-start gap-3 rounded-2xl border border-white/8 bg-white/4 px-4 py-3">
                     <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-[var(--success)]" />
@@ -186,7 +191,7 @@ export function JobDescription() {
                     }}
                   >
                     <Building2 className="h-3.5 w-3.5" />
-                    {job.companyName || 'Independent Hiring Team'}
+                    {companyName}
                   </span>
                   {job.hrEmail && (
                     <span
@@ -228,7 +233,7 @@ export function JobDescription() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-foreground">Role Overview</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Full context for the opportunity and expectations.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Full job description published by {companyName}.</p>
                 </div>
               </div>
               <div className="text-sm leading-8 text-muted-foreground whitespace-pre-wrap">
@@ -243,7 +248,7 @@ export function JobDescription() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-foreground">Required Skills</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Core experience areas used to assess resume fit.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Skills recruiters expect to see reflected in the resume and interview.</p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -270,7 +275,7 @@ export function JobDescription() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-foreground">Interview Scope</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Topics the assessment can focus on.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Topic tags attached to this role and shown before the interview stage.</p>
                 </div>
               </div>
 
@@ -287,13 +292,13 @@ export function JobDescription() {
             </div>
 
             <div className="surface-panel-soft rounded-[1.8rem] p-6 sm:p-7">
-              <p className="section-kicker mb-4">Candidate Experience</p>
-              <h3 className="text-2xl font-bold text-foreground">What happens after you apply</h3>
+              <p className="section-kicker mb-4">Application Workflow</p>
+              <h3 className="text-2xl font-bold text-foreground">What happens after submission</h3>
               <div className="mt-5 space-y-4">
                 {[
-                  'Your resume is matched against the role requirements.',
-                  'Qualified profiles receive a secure interview link.',
-                  'The hiring team reviews combined ATS and interview signals.'
+                  'Your PDF resume is parsed and compared against this job description.',
+                  'Shortlisted candidates receive a secure interview link by email.',
+                  'Recruiters review ATS score, interview responses, and proctoring signals together.'
                 ].map((step, index) => (
                   <div key={step} className="flex gap-3">
                     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[rgba(var(--primary-rgb),0.12)] text-sm font-semibold text-[var(--primary)]">

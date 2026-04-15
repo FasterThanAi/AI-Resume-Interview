@@ -2,16 +2,20 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { api } from '../../services/api';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import {
   AlertTriangle,
   ArrowLeft,
   BarChart2,
+  CalendarDays,
   Camera,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   Eye,
   Loader2,
+  MailCheck,
+  MapPin,
   MessageSquare,
   Shield,
   Star,
@@ -25,12 +29,57 @@ import {
 } from 'lucide-react';
 import { HrLayout } from '../../components/HrLayout';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
+import { toast } from 'sonner';
 
 const rankMeta = [
   { icon: Trophy, color: '#f5b94c', bg: 'rgba(var(--warning-rgb),0.14)', border: 'rgba(var(--warning-rgb),0.24)' },
   { icon: Star, color: 'var(--info)', bg: 'rgba(var(--info-rgb),0.14)', border: 'rgba(var(--info-rgb),0.24)' },
   { icon: TrendingUp, color: 'var(--success)', bg: 'rgba(var(--success-rgb),0.14)', border: 'rgba(var(--success-rgb),0.24)' }
 ];
+const TECHNICAL_ROUND_THRESHOLD = 15;
+
+function formatInvitationDate(dateValue) {
+  if (!dateValue) return 'Not scheduled';
+  return new Date(dateValue).toLocaleString('en-US', {
+    dateStyle: 'full',
+    timeStyle: 'short'
+  });
+}
+
+function toDateTimeLocalValue(dateValue) {
+  if (!dateValue) return '';
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function getStatusBadgeMeta(status) {
+  switch (status) {
+    case 'Shortlisted':
+      return {
+        background: 'rgba(var(--warning-rgb),0.12)',
+        color: 'var(--warning)'
+      };
+    case 'Technical Interview Scheduled':
+      return {
+        background: 'rgba(var(--success-rgb),0.12)',
+        color: 'var(--success)'
+      };
+    case 'Rejected':
+      return {
+        background: 'rgba(239,82,95,0.12)',
+        color: 'var(--destructive)'
+      };
+    case 'Applied':
+    default:
+      return {
+        background: 'rgba(var(--info-rgb),0.12)',
+        color: 'var(--info)'
+      };
+  }
+}
 
 function ScorePill({ score, label }) {
   if (score === null || score === undefined) return null;
@@ -89,7 +138,7 @@ function ProctoringReview({ candidate }) {
             Proctoring Summary
           </p>
           <p className="text-sm leading-7 text-muted-foreground">
-            Event capture from the integrated webcam/session monitor during the interview.
+            Browser and webcam signals captured during the candidate&apos;s interview session.
           </p>
         </div>
 
@@ -119,7 +168,7 @@ function ProctoringReview({ candidate }) {
 
           {recentEvents.length === 0 ? (
             <p className="mt-4 text-sm leading-7 text-muted-foreground">
-              No proctoring events were recorded for this session.
+              No proctoring events were stored for this interview session.
             </p>
           ) : (
             <div className="mt-4 space-y-3">
@@ -158,10 +207,10 @@ function ProctoringReview({ candidate }) {
           </p>
           <p className="mt-4 text-sm leading-7 text-foreground">
             {criticalCount > 0
-              ? 'Critical proctoring activity was detected during the interview. Review these events with the transcript and score before making a decision.'
+              ? 'Critical proctoring events were detected during the interview. Review them alongside the transcript and score before making a final decision.'
               : warningCount > 0
-                ? 'Only warning-level proctoring signals were recorded. Review them for context, but the interview completed normally.'
-                : 'No suspicious proctoring activity was recorded in the integrated monitoring flow.'}
+                ? 'Only warning-level proctoring signals were stored. Review them for context, but the interview completed without a critical interruption.'
+                : 'No suspicious proctoring activity was stored for this interview session.'}
           </p>
         </div>
       </div>
@@ -182,7 +231,7 @@ function InterviewSnapshotPanel({ candidate }) {
             Interview Snapshot
           </p>
           <p className="text-sm leading-7 text-muted-foreground">
-            Still image captured from the live interview webcam for recruiter review.
+            Still image saved from the live interview webcam for recruiter review.
           </p>
         </div>
 
@@ -205,7 +254,7 @@ function InterviewSnapshotPanel({ candidate }) {
       ) : (
         <div className="mt-5 rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.03] px-4 py-5">
           <p className="text-sm leading-7 text-muted-foreground">
-            No interview photo was captured for this session.
+            No interview snapshot was saved for this session.
           </p>
         </div>
       )}
@@ -213,17 +262,21 @@ function InterviewSnapshotPanel({ candidate }) {
   );
 }
 
-function EvaluationPanel({ candidate }) {
+function EvaluationPanel({ candidate, job, onOpenInviteDialog, technicalRoundThreshold }) {
   const hasEval = candidate.evaluationStatus === 'complete' || candidate.interviewScore !== null;
   const hasTranscript = Array.isArray(candidate.interviewTranscript) && candidate.interviewTranscript.length > 0;
   const hasProctoring = Array.isArray(candidate.proctoringEvents) && candidate.proctoringEvents.length > 0;
+  const hasInterviewScore = typeof candidate.interviewScore === 'number';
+  const isEligibleForTechnicalRound = hasInterviewScore && candidate.interviewScore >= technicalRoundThreshold;
+  const technicalInvitation = candidate.technicalInterviewInvitation || {};
+  const hasTechnicalInvite = Boolean(technicalInvitation?.scheduledAt && technicalInvitation?.location);
 
   if (!hasEval && !hasTranscript && !hasProctoring) {
     return (
       <div className="px-6 pb-6 pt-2">
         <div className="empty-state rounded-[1.4rem] p-5 text-center">
           <p className="text-sm text-muted-foreground">
-            Interview not yet completed. Evaluation will appear here once the candidate finishes the process.
+            This candidate has not completed the interview yet. Transcript, evaluation, and proctoring evidence will appear here after the session.
           </p>
         </div>
       </div>
@@ -234,6 +287,66 @@ function EvaluationPanel({ candidate }) {
     <div className="px-6 pb-6 pt-2 space-y-5">
       <InterviewSnapshotPanel candidate={candidate} />
 
+      <div className="surface-panel-soft rounded-[1.5rem] p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <MailCheck className="h-3.5 w-3.5" />
+              Company Technical Round
+            </p>
+            <p className="text-sm leading-7 text-muted-foreground">
+              Recruiters can accept candidates for the next company technical round only when the HireAI interview score is {technicalRoundThreshold} or higher.
+            </p>
+          </div>
+
+          {(hasEval && isEligibleForTechnicalRound) && (
+            <button
+              type="button"
+              onClick={() => onOpenInviteDialog(candidate)}
+              className="control-button control-button-secondary rounded-2xl px-4 py-3 text-sm"
+            >
+              <MailCheck className="h-4 w-4" />
+              {hasTechnicalInvite ? 'Update Invite' : 'Accept for Technical Round'}
+            </button>
+          )}
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div className="rounded-[1.2rem] border border-white/8 bg-white/4 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Eligibility</p>
+            <p className="mt-3 text-sm font-semibold text-foreground">
+              {hasInterviewScore
+                ? candidate.interviewScore >= technicalRoundThreshold
+                  ? `Eligible with ${candidate.interviewScore}/100`
+                  : `Below threshold with ${candidate.interviewScore}/100`
+                : 'Awaiting completed interview evaluation'}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              {hasInterviewScore
+                ? candidate.interviewScore >= technicalRoundThreshold
+                  ? `This candidate can be moved to the company technical round for ${job.companyName || 'the hiring team'}.`
+                  : `This candidate is below the acceptance threshold of ${technicalRoundThreshold}/100 for the next round.`
+                : 'Once the interview score is available, recruiter action will unlock automatically.'}
+            </p>
+          </div>
+
+          <div className="rounded-[1.2rem] border border-white/8 bg-white/4 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Invite Status</p>
+            {hasTechnicalInvite ? (
+              <div className="mt-3 space-y-2 text-sm leading-6 text-foreground">
+                <p><span className="font-semibold">Scheduled:</span> {formatInvitationDate(technicalInvitation.scheduledAt)}</p>
+                <p><span className="font-semibold">Place:</span> {technicalInvitation.location}</p>
+                <p><span className="font-semibold">Company:</span> {technicalInvitation.companyName || job.companyName || 'Hiring Team'}</p>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                No company technical round invitation has been sent for this candidate yet.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {!hasEval && hasTranscript && (
         <div className="surface-panel-soft rounded-[1.5rem] p-5">
           <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -241,7 +354,7 @@ function EvaluationPanel({ candidate }) {
             Evaluation In Progress
           </p>
           <p className="text-sm leading-7 text-foreground">
-            The interview transcript is available below. The final AI evaluation is still being prepared and will appear here automatically after refresh.
+            The interview transcript is already stored below. Gemini is still preparing the final evaluation and it will appear here automatically after refresh.
           </p>
         </div>
       )}
@@ -250,7 +363,7 @@ function EvaluationPanel({ candidate }) {
         <div className="surface-panel-soft rounded-[1.5rem] p-5">
           <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             <MessageSquare className="h-3.5 w-3.5" />
-            Overall Summary
+            AI Evaluation Summary
           </p>
           <p className="text-sm leading-7 text-foreground">{candidate.overallSummary}</p>
         </div>
@@ -298,7 +411,7 @@ function EvaluationPanel({ candidate }) {
         <div className="surface-panel-soft rounded-[1.5rem] p-5">
           <p className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             <BarChart2 className="h-3.5 w-3.5" />
-            Question Breakdown
+            Answer-by-Answer Review
           </p>
           <div className="space-y-4">
             {candidate.questionFeedback.map((item, idx) => (
@@ -321,7 +434,7 @@ function EvaluationPanel({ candidate }) {
         <div className="surface-panel-soft rounded-[1.5rem] p-5">
           <p className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             <MessageSquare className="h-3.5 w-3.5" />
-            Interview Transcript
+            Stored Interview Transcript
           </p>
           <div className="space-y-4">
             {candidate.interviewTranscript.map((entry, idx) => (
@@ -329,7 +442,7 @@ function EvaluationPanel({ candidate }) {
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">Q{idx + 1}</p>
                 <p className="mt-2 text-sm font-semibold text-foreground">{entry.question}</p>
                 <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                  {entry.candidateAnswer || 'No answer recorded.'}
+                  {entry.candidateAnswer || 'No answer was stored for this question.'}
                 </p>
               </div>
             ))}
@@ -341,7 +454,7 @@ function EvaluationPanel({ candidate }) {
         <div className="rounded-[1.5rem] border p-5" style={{ borderColor: 'rgba(var(--primary-rgb),0.22)', background: 'rgba(var(--primary-rgb),0.08)' }}>
           <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">
             <Target className="h-3.5 w-3.5" />
-            Hiring Recommendation
+            Recruiter Recommendation
           </p>
           <p className="text-sm leading-7 text-foreground">{candidate.finalRecommendation}</p>
         </div>
@@ -360,6 +473,10 @@ export function HrCandidates() {
   const [loading, setLoading] = useState(true);
   const [expandedIds, setExpandedIds] = useState(new Set());
   const [deletingId, setDeletingId] = useState(null);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ scheduledAt: '', location: '' });
 
   useEffect(() => { loadData(); }, [jobId]);
 
@@ -413,6 +530,46 @@ export function HrCandidates() {
     });
   };
 
+  const openInviteDialog = (candidate) => {
+    setSelectedCandidate(candidate);
+    setInviteForm({
+      scheduledAt: toDateTimeLocalValue(candidate.technicalInterviewInvitation?.scheduledAt),
+      location: candidate.technicalInterviewInvitation?.location || ''
+    });
+    setInviteDialogOpen(true);
+  };
+
+  const closeInviteDialog = () => {
+    setInviteDialogOpen(false);
+    setSelectedCandidate(null);
+    setInviteForm({ scheduledAt: '', location: '' });
+  };
+
+  const handleInviteSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!selectedCandidate) return;
+
+    setInviteSubmitting(true);
+    try {
+      const payload = {
+        scheduledAt: new Date(inviteForm.scheduledAt).toISOString(),
+        location: inviteForm.location.trim()
+      };
+
+      const response = await api.sendTechnicalInterviewInvite(jobId, selectedCandidate._id, payload);
+      setCandidates((prev) => prev.map((candidate) => (
+        candidate._id === response.candidate._id ? response.candidate : candidate
+      )));
+      toast.success('Technical round invitation sent successfully.');
+      closeInviteDialog();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Unable to send the technical round invitation.');
+    } finally {
+      setInviteSubmitting(false);
+    }
+  };
+
   const handleDelete = async (candidate) => {
     const confirmed = window.confirm(
       `Delete candidate "${candidate.name}"?\n\nThis will permanently remove all their interview data and cannot be undone.`
@@ -430,19 +587,19 @@ export function HrCandidates() {
       });
     } catch (err) {
       console.error('Delete failed:', err);
-      alert('Failed to delete candidate. Please try again.');
+      alert(err.response?.data?.error || 'Unable to delete the candidate. Please try again.');
     } finally {
       setDeletingId(null);
     }
   };
 
   if (loading) {
-    return <LoadingSpinner message="Loading candidates..." />;
+    return <LoadingSpinner message="Loading candidate pipeline..." />;
   }
 
   if (!job) {
     return (
-      <LoadingSpinner message="Unable to load the selected job." />
+      <LoadingSpinner message="Unable to load the selected job pipeline." />
     );
   }
 
@@ -458,59 +615,60 @@ export function HrCandidates() {
   ];
 
   return (
-    <HrLayout
-      active="jobs"
-      eyebrow="Candidate Review"
-      title={job.title}
-      subtitle="Review applicants ranked by ATS match score, expand full evaluations, and preserve the same candidate management actions."
-      actions={(
-        <button
-          type="button"
-          onClick={() => navigate('/hr/jobs')}
-          className="control-button control-button-ghost px-4 py-2.5 text-sm"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Jobs
-        </button>
-      )}
-    >
-      <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-3">
-          {overviewStats.map(({ label, value, icon: Icon, color, tone }) => (
-            <div key={label} className="surface-panel rounded-[1.7rem] p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</span>
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl" style={{ background: tone }}>
-                  <Icon className="h-4 w-4" style={{ color }} />
+    <>
+      <HrLayout
+        active="jobs"
+        eyebrow="Candidate Review"
+        title={job.title}
+        subtitle={`Review applicants for ${job.companyName || 'this role'} by ATS match score, interview evaluation, transcript, and proctoring evidence.`}
+        actions={(
+          <button
+            type="button"
+            onClick={() => navigate('/hr/jobs')}
+            className="control-button control-button-ghost px-4 py-2.5 text-sm"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Jobs
+          </button>
+        )}
+      >
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            {overviewStats.map(({ label, value, icon: Icon, color, tone }) => (
+              <div key={label} className="surface-panel rounded-[1.7rem] p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</span>
+                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl" style={{ background: tone }}>
+                    <Icon className="h-4 w-4" style={{ color }} />
+                  </div>
                 </div>
+                <p className="metric-value text-foreground">{value}</p>
               </div>
-              <p className="metric-value text-foreground">{value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="surface-panel overflow-hidden rounded-[1.9rem]">
-          <div className="flex flex-col gap-2 border-b border-border/70 px-6 py-5 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <span className="section-kicker mb-3">Ranked Candidates</span>
-              <h2 className="text-2xl font-bold text-foreground">Leaderboard and evaluation detail</h2>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Sorted by ATS match score. Expand any row to inspect the full interview evaluation.
-            </p>
+            ))}
           </div>
 
-          {candidates.length === 0 ? (
-            <div className="empty-state m-6 flex min-h-[320px] flex-col items-center justify-center px-6 text-center">
-              <Users className="mb-4 h-10 w-10 text-muted-foreground" />
-              <p className="text-xl font-bold text-foreground">No candidates have applied yet</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Applicants will appear here once the public job flow starts collecting submissions.
+          <div className="surface-panel overflow-hidden rounded-[1.9rem]">
+            <div className="flex flex-col gap-2 border-b border-border/70 px-6 py-5 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <span className="section-kicker mb-3">Applicant Ranking</span>
+                <h2 className="text-2xl font-bold text-foreground">Candidate pipeline for this role</h2>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Sorted by ATS match score. Expand any applicant to inspect transcript, Gemini evaluation, and proctoring evidence.
               </p>
             </div>
-          ) : (
-            <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
-              {candidates.map((c, i) => {
+
+            {candidates.length === 0 ? (
+              <div className="empty-state m-6 flex min-h-[320px] flex-col items-center justify-center px-6 text-center">
+                <Users className="mb-4 h-10 w-10 text-muted-foreground" />
+                <p className="text-xl font-bold text-foreground">No applications have been submitted yet</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Applicants will appear here as soon as candidates submit resumes for this job.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
+                {candidates.map((c, i) => {
                 const rm = rankMeta[i] || { icon: Users, color: 'var(--muted-foreground)', bg: 'rgba(var(--foreground-rgb),0.06)', border: 'rgba(var(--foreground-rgb),0.08)' };
                 const RankIcon = rm.icon;
                 const isExpanded = expandedIds.has(c._id);
@@ -519,6 +677,8 @@ export function HrCandidates() {
                 const hasTranscript = (c.interviewTranscript?.length || 0) > 0;
                 const isEvaluationPending = c.evaluationStatus === 'pending' || (hasTranscript && c.interviewScore === null);
                 const proctoringMetrics = getProctoringMetrics(c);
+                const statusMeta = getStatusBadgeMeta(c.status);
+                const hasTechnicalInvite = Boolean(c.technicalInterviewInvitation?.scheduledAt && c.technicalInterviewInvitation?.location);
 
                 return (
                   <motion.div
@@ -551,15 +711,15 @@ export function HrCandidates() {
                               <span
                                 className="rounded-full px-2.5 py-1 text-xs font-semibold"
                                 style={{
-                                  background: c.status === 'Applied' ? 'rgba(var(--info-rgb),0.12)' : 'rgba(var(--success-rgb),0.12)',
-                                  color: c.status === 'Applied' ? 'var(--info)' : 'var(--success)'
+                                  background: statusMeta.background,
+                                  color: statusMeta.color
                                 }}
                               >
                                 {c.status}
                               </span>
                               {hasInterview && (
                                 <span className="badge-interviewed rounded-full px-2.5 py-1 text-xs font-semibold">
-                                  Interviewed
+                                  Interview completed
                                 </span>
                               )}
                               {isEvaluationPending && (
@@ -570,7 +730,18 @@ export function HrCandidates() {
                                     color: 'var(--warning)'
                                   }}
                                 >
-                                  Evaluation pending
+                                  AI evaluation pending
+                                </span>
+                              )}
+                              {hasInterview && c.interviewScore >= TECHNICAL_ROUND_THRESHOLD && !hasTechnicalInvite && !isEvaluationPending && (
+                                <span
+                                  className="rounded-full px-2.5 py-1 text-xs font-semibold"
+                                  style={{
+                                    background: 'rgba(var(--success-rgb),0.12)',
+                                    color: 'var(--success)'
+                                  }}
+                                >
+                                  Eligible for technical round
                                 </span>
                               )}
                             </div>
@@ -602,7 +773,18 @@ export function HrCandidates() {
                             </div>
                           )}
 
-                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            {hasInterview && c.interviewScore >= TECHNICAL_ROUND_THRESHOLD && !isEvaluationPending && (
+                              <button
+                                type="button"
+                                onClick={() => openInviteDialog(c)}
+                                className="control-button control-button-secondary rounded-2xl px-3.5 py-3 text-sm"
+                                title={hasTechnicalInvite ? 'Update technical round invite' : 'Accept for technical round'}
+                              >
+                                <MailCheck className="h-4 w-4" />
+                                {hasTechnicalInvite ? 'Update Invite' : 'Accept Candidate'}
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDelete(c)}
                               disabled={isDeleting}
@@ -631,17 +813,116 @@ export function HrCandidates() {
                           transition={{ duration: 0.24, ease: 'easeInOut' }}
                           style={{ overflow: 'hidden', borderTop: '1px solid var(--border)' }}
                         >
-                          <EvaluationPanel candidate={c} />
+                          <EvaluationPanel
+                            candidate={c}
+                            job={job}
+                            onOpenInviteDialog={openInviteDialog}
+                            technicalRoundThreshold={TECHNICAL_ROUND_THRESHOLD}
+                          />
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </motion.div>
                 );
-              })}
-            </div>
-          )}
+                })}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </HrLayout>
+      </HrLayout>
+
+      <Dialog
+        open={inviteDialogOpen}
+        onOpenChange={(open) => {
+          if (inviteSubmitting) return;
+          if (open) {
+            setInviteDialogOpen(true);
+          } else {
+            closeInviteDialog();
+          }
+        }}
+      >
+        <DialogContent
+          className="max-h-[90vh] max-w-xl overflow-y-auto rounded-[1.8rem] border"
+          style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-foreground">
+              Schedule Company Technical Round
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-6 text-muted-foreground">
+              Send the next-round technical interview invitation to {selectedCandidate?.name || 'this candidate'} only after confirming the company date, time, and place.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleInviteSubmit} className="mt-3 space-y-5">
+            <div className="rounded-[1.4rem] border border-white/8 bg-white/4 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Eligibility Check</p>
+              <p className="mt-3 text-sm leading-6 text-foreground">
+                HireAI interview score: <span className="font-semibold">{selectedCandidate?.interviewScore ?? 'Not available'}</span>
+              </p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Minimum required score for this action: {TECHNICAL_ROUND_THRESHOLD}/100
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Interview Date and Time
+              </label>
+              <div className="relative">
+                <CalendarDays className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="datetime-local"
+                  value={inviteForm.scheduledAt}
+                  onChange={(event) => setInviteForm((prev) => ({ ...prev, scheduledAt: event.target.value }))}
+                  required
+                  className="w-full rounded-2xl border py-3 pl-11 pr-4 text-sm transition-all"
+                  style={{ background: 'var(--input-background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Interview Place
+              </label>
+              <div className="relative">
+                <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={inviteForm.location}
+                  onChange={(event) => setInviteForm((prev) => ({ ...prev, location: event.target.value }))}
+                  placeholder="Head office, meeting room name, or campus venue"
+                  required
+                  className="w-full rounded-2xl border py-3 pl-11 pr-4 text-sm transition-all"
+                  style={{ background: 'var(--input-background)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={closeInviteDialog}
+                className="control-button control-button-ghost rounded-2xl px-5 py-3 text-sm"
+                disabled={inviteSubmitting}
+              >
+                Cancel
+              </button>
+              <motion.button
+                type="submit"
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                disabled={inviteSubmitting}
+                className="btn-gradient rounded-2xl px-5 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {inviteSubmitting ? 'Sending Invite...' : 'Send Technical Round Invite'}
+              </motion.button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

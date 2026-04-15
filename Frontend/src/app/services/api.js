@@ -83,6 +83,10 @@ export const api = {
         const response = await apiClient.delete(`/api/jobs/${jobId}/candidates/${candidateId}`);
         return response.data;
     },
+    async sendTechnicalInterviewInvite(jobId, candidateId, inviteData) {
+        const response = await apiClient.post(`/api/jobs/${jobId}/candidates/${candidateId}/technical-invite`, inviteData);
+        return response.data;
+    },
     async submitApplication(formData) {
         const response = await axios.post(`${API_URL}/api/upload-resume`, formData, {
             headers: {

@@ -33,17 +33,17 @@ export function HrDashboard() {
   };
 
   if (loading) {
-    return <LoadingSpinner message="Loading dashboard..." />;
+    return <LoadingSpinner message="Loading recruiter dashboard..." />;
   }
 
   const statCards = [
     {
-      label: 'Total Active Jobs',
+      label: 'Published Roles',
       value: stats?.totalJobs ?? 0,
       icon: Briefcase,
       color: 'var(--primary)',
       tone: 'rgba(var(--primary-rgb),0.12)',
-      sub: 'Open positions currently published'
+      sub: 'Job posts currently owned by your HR account'
     },
     {
       label: 'Total Applicants',
@@ -51,15 +51,15 @@ export function HrDashboard() {
       icon: Users,
       color: 'var(--success)',
       tone: 'rgba(var(--success-rgb),0.12)',
-      sub: 'Applicants currently in the pipeline'
+      sub: 'Applicants submitted to your published roles'
     },
     {
-      label: 'Avg Match Score',
+      label: 'Average ATS Match',
       value: `${stats?.averageMatchScore ?? 0}%`,
       icon: TrendingUp,
       color: 'var(--info)',
       tone: 'rgba(var(--info-rgb),0.12)',
-      sub: 'Average ATS-style matching quality'
+      sub: 'Average resume-to-role match across your applicant pool'
     }
   ];
 
@@ -68,7 +68,7 @@ export function HrDashboard() {
       active="dashboard"
       eyebrow="HR Dashboard"
       title="Recruitment overview"
-      subtitle="Monitor the health of your hiring pipeline, move into job management, and keep recent applicant activity close at hand."
+      subtitle="Track jobs owned by your HR account, monitor ATS performance, and review the latest applicant activity in one place."
       actions={(
         <button
           type="button"
@@ -109,9 +109,9 @@ export function HrDashboard() {
               <div>
                 <span className="section-kicker mb-3">
                   <Wand2 className="h-3.5 w-3.5" />
-                  Quick Actions
+                  Workflow Shortcuts
                 </span>
-                <h2 className="text-2xl font-bold text-foreground">Common operator tasks</h2>
+                <h2 className="text-2xl font-bold text-foreground">Common recruitment tasks</h2>
               </div>
             </div>
 
@@ -119,14 +119,14 @@ export function HrDashboard() {
               {[
                 {
                   title: 'Manage Jobs',
-                  desc: 'Create, edit, and review all live openings from the same admin workspace.',
+                  desc: 'Create new roles, update active job posts, and open candidate review for jobs owned by your HR account.',
                   action: () => navigate('/hr/jobs'),
                   cta: 'Open Job Management',
                   icon: Briefcase
                 },
                 {
                   title: 'Public Job Board',
-                  desc: 'See the external-facing experience exactly how candidates see it.',
+                  desc: 'Preview exactly what applicants see, including company branding, recruiter contact, and live role content.',
                   action: () => navigate('/jobs'),
                   cta: 'Preview Public Board',
                   icon: ArrowRight
@@ -157,9 +157,9 @@ export function HrDashboard() {
           <div className="surface-panel rounded-[1.8rem] p-6 sm:p-7">
             <div className="mb-6">
               <span className="section-kicker mb-3">Recent Applications</span>
-              <h2 className="text-2xl font-bold text-foreground">Latest pipeline movement</h2>
+              <h2 className="text-2xl font-bold text-foreground">Recent applicants</h2>
               <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                The newest candidate submissions across the roles currently tied to your account.
+                Latest applications submitted to jobs owned by your HR account.
               </p>
             </div>
 
@@ -186,16 +186,20 @@ export function HrDashboard() {
                           </p>
                         </div>
                       </div>
-                      <p className="mt-3 text-sm text-muted-foreground">{a.jobTitle || 'Linked role information unavailable'}</p>
+                      <p className="mt-3 text-sm text-muted-foreground">
+                        {a.jobTitle
+                          ? `${a.jobTitle}${a.companyName ? ` · ${a.companyName}` : ''}`
+                          : 'Role details unavailable'}
+                      </p>
                     </div>
                   );
                 })
               ) : (
                 <div className="empty-state flex min-h-[260px] flex-col items-center justify-center px-6 text-center">
                   <Users className="mb-4 h-10 w-10 text-muted-foreground" />
-                  <p className="text-lg font-semibold text-foreground">No recent applications</p>
+                  <p className="text-lg font-semibold text-foreground">No recent applicants yet</p>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Once candidates start applying, the most recent activity will appear here.
+                    New applications for jobs in your workspace will appear here as soon as candidates submit resumes.
                   </p>
                 </div>
               )}

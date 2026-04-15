@@ -1,4 +1,4 @@
-export function LoadingSpinner({ message = 'Loading...' }) {
+export function LoadingSpinner({ message = 'Loading workspace...' }) {
   return (
     <div className="page-shell bg-hero flex min-h-screen items-center justify-center px-4">
       <div className="surface-panel rounded-[1.8rem] px-10 py-9 text-center">

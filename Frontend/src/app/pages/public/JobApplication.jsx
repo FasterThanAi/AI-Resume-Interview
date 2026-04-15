@@ -44,7 +44,7 @@ export function JobApplication() {
     if (file && file.type === 'application/pdf') {
       setFormData({ ...formData, resume: file });
     } else {
-      alert('Please upload a PDF file');
+      alert('Please upload a PDF resume file.');
     }
   };
 
@@ -62,13 +62,15 @@ export function JobApplication() {
       setSubmitted(true);
     } catch (err) {
       console.error(err);
-      alert('Failed to submit application. Please try again.');
+      alert(err.response?.data?.error || 'Application submission failed. Please verify your details and try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const interviewLinkSent = Boolean(result?.message?.toLowerCase().includes('emailed'));
+  const companyName = job?.companyName || 'Independent Hiring Team';
+  const recruiterEmail = job?.hrEmail || 'Recruiter contact available after submission';
 
   if (loading) {
     return (
@@ -78,7 +80,7 @@ export function JobApplication() {
             className="mx-auto h-12 w-12 animate-spin rounded-full border-2"
             style={{ borderColor: 'rgba(var(--primary-rgb), 0.28)', borderTopColor: 'var(--primary)' }}
           />
-          <p className="mt-4 text-sm text-muted-foreground">Loading application flow...</p>
+          <p className="mt-4 text-sm text-muted-foreground">Preparing application form...</p>
         </div>
       </div>
     );
@@ -91,7 +93,7 @@ export function JobApplication() {
           <Briefcase className="mx-auto mb-5 h-12 w-12 text-muted-foreground" />
           <p className="text-lg font-semibold text-foreground">Job not found</p>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            The role you were trying to apply for could not be loaded.
+            This role could not be loaded or may no longer be accepting applications.
           </p>
           <button
             className="btn-gradient mt-7 rounded-2xl px-5 py-3 text-sm font-semibold"
@@ -122,16 +124,16 @@ export function JobApplication() {
             Application Received
           </span>
 
-          <h2 className="text-4xl font-bold text-foreground">Application Sent</h2>
+          <h2 className="text-4xl font-bold text-foreground">Application Submitted</h2>
           <p className="mt-4 text-base leading-8 text-muted-foreground">
-            {result.message || 'Your profile has been submitted successfully.'}
+            {result.message || 'Your resume has been submitted to the recruiter workspace for this role.'}
           </p>
 
           <div className="mx-auto mt-8 grid max-w-xl gap-4 sm:grid-cols-3">
             {[
-              { icon: Building2, label: 'Company', copy: job.companyName || 'Independent Hiring Team' },
+              { icon: Building2, label: 'Company', copy: companyName },
               { icon: Mail, label: 'Inbox', copy: formData.email },
-              { icon: Wand2, label: 'Contact', copy: job.hrEmail || 'Managed by hiring team' }
+              { icon: Wand2, label: 'Recruiter Contact', copy: recruiterEmail }
             ].map(({ icon: Icon, label, copy }) => (
               <div key={label} className="metric-tile rounded-[1.4rem] p-4">
                 <Icon className="mb-3 h-4 w-4 text-[var(--info)]" />
@@ -145,12 +147,12 @@ export function JobApplication() {
             <p className="text-sm leading-7 text-muted-foreground">
               {interviewLinkSent ? (
                 <>
-                  We&apos;ve sent a secure magic link to <span className="font-semibold text-foreground">{formData.email}</span>.
+                  We&apos;ve sent a secure interview link to <span className="font-semibold text-foreground">{formData.email}</span>.
                   Click the link in the email to start your AI-conducted technical interview.
                 </>
               ) : (
                 <>
-                  The <span className="font-semibold text-foreground">{job.companyName || 'hiring'}</span> team will review your resume first.
+                  The <span className="font-semibold text-foreground">{companyName}</span> team will review your resume first.
                   If you clear the ATS threshold, the interview link will be sent to <span className="font-semibold text-foreground">{formData.email}</span>.
                 </>
               )}
@@ -200,15 +202,15 @@ export function JobApplication() {
             <div className="surface-panel rounded-[2rem] p-7 sm:p-8">
               <span className="section-kicker mb-5">
                 <ShieldCheck className="h-3.5 w-3.5" />
-                Guided Application Flow
+                Role Application
               </span>
 
               <div className="space-y-4">
                 <h1 className="text-4xl font-bold leading-tight text-foreground">
-                  Apply with a cleaner, structured candidate experience.
+                  Apply for {job.title}
                 </h1>
                 <p className="text-sm leading-7 text-muted-foreground">
-                  Share your details, upload your resume, and let the system guide the next step based on qualification fit.
+                  Submit your resume to {companyName}. The system will parse your PDF, calculate an ATS match score, and notify you if you are shortlisted for the AI interview.
                 </p>
               </div>
 
@@ -233,7 +235,7 @@ export function JobApplication() {
                     }}
                   >
                     <Building2 className="h-3.5 w-3.5" />
-                    {job.companyName || 'Independent Hiring Team'}
+                    {companyName}
                   </span>
                   {job.hrEmail && (
                     <span
@@ -268,9 +270,9 @@ export function JobApplication() {
               </p>
               <div className="space-y-4">
                 {[
-                  'AI evaluates your resume against role requirements.',
-                  'Qualified candidates receive a secure interview link.',
-                  'HR reviews combined resume and interview signals.'
+                  'Your PDF resume is parsed and checked against the job description.',
+                  'Shortlisted candidates receive a secure interview link by email.',
+                  'Recruiters review ATS score, interview answers, and proctoring results together.'
                 ].map((step, index) => (
                   <div key={step} className="flex gap-3">
                     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[rgba(var(--primary-rgb),0.12)] text-sm font-semibold text-[var(--primary)]">
@@ -292,11 +294,11 @@ export function JobApplication() {
             <div className="mb-8">
               <span className="section-kicker mb-4">
                 <Upload className="h-3.5 w-3.5" />
-                Candidate Submission
+                Resume Submission
               </span>
-              <h2 className="text-3xl font-bold text-foreground">Submit your application</h2>
+              <h2 className="text-3xl font-bold text-foreground">Send your resume</h2>
               <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                Keep the same working flow, now presented with clearer hierarchy, cleaner feedback, and better desktop-to-mobile balance.
+                Your application is stored in the recruiter dashboard for this role and screened against the job requirements before the next step is issued.
               </p>
             </div>
 
@@ -368,7 +370,7 @@ export function JobApplication() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-foreground">{formData.resume.name}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">Click to replace your uploaded PDF</p>
+                        <p className="mt-1 text-sm text-muted-foreground">Ready for upload and ATS parsing</p>
                       </div>
                     </>
                   ) : (
@@ -377,8 +379,8 @@ export function JobApplication() {
                         <Upload className="h-7 w-7" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-foreground">Click or drag & drop your resume</p>
-                        <p className="mt-1 text-sm text-muted-foreground">PDF format only · Max 5 MB</p>
+                        <p className="text-sm font-semibold text-foreground">Click or drag your PDF resume here</p>
+                        <p className="mt-1 text-sm text-muted-foreground">PDF only · parsed before ATS screening</p>
                       </div>
                     </>
                   )}
@@ -389,9 +391,9 @@ export function JobApplication() {
                 <p className="mb-3 text-sm font-semibold text-foreground">Application overview</p>
                 <div className="grid gap-3 sm:grid-cols-3">
                   {[
-                    { label: 'Resume review', value: 'Automated' },
-                    { label: 'Match score', value: '0 - 100%' },
-                    { label: 'Interview access', value: 'Magic link' }
+                    { label: 'Resume intake', value: 'PDF parsing' },
+                    { label: 'ATS match', value: 'Stored for review' },
+                    { label: 'Interview link', value: 'If shortlisted' }
                   ].map(({ label, value }) => (
                     <div key={label} className="rounded-2xl border border-white/8 bg-white/4 px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
@@ -411,12 +413,12 @@ export function JobApplication() {
                 {submitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Processing Application...
+                    Submitting to recruiter workspace...
                   </>
                 ) : (
                   <>
                     <Upload className="h-4 w-4" />
-                    Submit Application
+                    Submit for Screening
                   </>
                 )}
               </motion.button>

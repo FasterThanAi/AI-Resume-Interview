@@ -1,4 +1,4 @@
-// This component can be added to any page to show demo instructions
+// This component can be added to any page to show local environment notes
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Info } from 'lucide-react';
 
@@ -8,15 +8,15 @@ export function DemoInstructions() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-blue-800">
           <Info className="h-5 w-5" />
-          Demo Mode Instructions
+          Local Environment Notes
         </CardTitle>
       </CardHeader>
       <CardContent className="text-sm text-blue-700 space-y-2">
-        <p><strong>HR Login:</strong> Use any email and password to access the admin console</p>
-        <p><strong>Job Board:</strong> Browse and apply to jobs without login</p>
-        <p><strong>Application:</strong> Upload any PDF (AI scoring is simulated)</p>
-        <p><strong>Interview:</strong> Click the demo link after applying to test the AI interview room</p>
-        <p><strong>Proctoring:</strong> Enable webcam to test face detection and anti-cheat features</p>
+        <p><strong>HR Login:</strong> Use a registered HR work email and password to access recruiter tools</p>
+        <p><strong>Job Board:</strong> Candidates can browse all published roles without signing in</p>
+        <p><strong>Application:</strong> Upload a PDF resume to trigger parsing and ATS screening</p>
+        <p><strong>Interview:</strong> Shortlisted candidates receive a secure interview link by email</p>
+        <p><strong>Proctoring:</strong> Browser and webcam checks run during the live interview session</p>
       </CardContent>
     </Card>);
 

@@ -43,12 +43,12 @@ export function AuthShell({
               style={{ background: `radial-gradient(circle, ${accentGlow} 0%, transparent 68%)` }} />
 
             <div className="relative z-10 space-y-8">
-              <BrandMark subtitle="Talent Ops Console" />
+              <BrandMark subtitle="Recruiter Workspace" />
 
               <div className="max-w-xl space-y-5">
                 <span className="section-kicker">
                   <Sparkles className="h-3.5 w-3.5" />
-                  Premium Recruitment Operations
+                  Secure Hiring Operations
                 </span>
 
                 <div className="space-y-4">
@@ -76,9 +76,9 @@ export function AuthShell({
 
             <div className="relative z-10 grid gap-4 rounded-[1.5rem] border border-white/8 bg-white/4 p-5">
               {[
-                'Secure admin authentication with protected workflows',
-                'Unified hiring dashboard, jobs, candidates, and interview review',
-                'Consistent visual language tuned for a product-quality experience'
+                'Protected recruiter sign-in for company-linked HR workspaces',
+                'Job publishing, ATS screening review, interview feedback, and candidate evidence in one flow',
+                'Public job posts carry company identity while recruiter actions remain private to the owning account'
               ].map((item) => (
                 <div key={item} className="flex items-start gap-3">
                   <div className="mt-0.5 rounded-full bg-white/8 p-1.5">

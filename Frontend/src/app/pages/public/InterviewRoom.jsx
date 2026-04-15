@@ -63,7 +63,7 @@ export function InterviewRoom() {
           initWebcam();
           initSpeechRecognition();
 
-          const greeting = `Hello ${response.data.candidateName}. I am your AI interviewer. Let's begin the technical assessment. Can you briefly introduce your background?`;
+          const greeting = `Hello ${response.data.candidateName}. I am your AI interviewer. We will begin with a short introduction and then move into resume-based technical questions. Can you briefly introduce your background?`;
           setChatHistory([{ role: 'assistant', content: greeting }]);
 
           setTimeout(() => speakText(greeting), 1000);
@@ -234,7 +234,7 @@ export function InterviewRoom() {
       }
     } catch (err) {
       console.error('Gemini API Error', err);
-      setChatHistory((prev) => [...prev, { role: 'assistant', content: "I'm having trouble connecting to the network right now. Please repeat your answer." }]);
+      setChatHistory((prev) => [...prev, { role: 'assistant', content: 'I could not reach the interview service just now. Please submit your answer again.' }]);
     } finally {
       setIsThinking(false);
     }
@@ -260,7 +260,7 @@ export function InterviewRoom() {
       <div className="page-shell bg-hero flex min-h-screen items-center justify-center px-4">
         <div className="surface-panel rounded-[2rem] px-10 py-10 text-center">
           <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-[var(--primary)]" />
-          <h2 className="text-xl font-semibold text-foreground">Verifying secure interview link...</h2>
+          <h2 className="text-xl font-semibold text-foreground">Verifying secure interview access...</h2>
         </div>
       </div>
     );
@@ -275,7 +275,7 @@ export function InterviewRoom() {
           </div>
           <h1 className="text-3xl font-bold text-foreground">Invalid or expired link</h1>
           <p className="mt-4 text-sm leading-7 text-muted-foreground">
-            This interview session is either invalid, already completed, or no longer available.
+            This interview link is invalid, expired, or has already been used. If you believe this is a mistake, please contact the recruiter who sent it.
           </p>
         </div>
       </div>
@@ -287,10 +287,10 @@ export function InterviewRoom() {
       <div className="page-shell bg-hero min-h-screen px-4 py-6 sm:px-6 lg:px-0">
         <div className="page-container">
           <div className="topbar-surface mb-6 flex flex-wrap items-center justify-between gap-4 rounded-[1.7rem] px-5 py-4 sm:px-6">
-            <BrandMark subtitle="Interview Report" />
+            <BrandMark subtitle="AI Interview Report" />
             <div className="section-kicker">
               <ShieldCheck className="h-3.5 w-3.5" />
-              Secure Session Complete
+              Interview Session Closed
             </div>
           </div>
 
@@ -304,22 +304,22 @@ export function InterviewRoom() {
                   <Sparkles className="h-3.5 w-3.5" />
                   Interview Complete
                 </span>
-                <h2 className="text-4xl font-bold text-foreground">Performance report for {candidateName}</h2>
+                <h2 className="text-4xl font-bold text-foreground">Assessment report for {candidateName}</h2>
                 <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                  The interview is complete. Your final assessment is shown below as soon as the evaluation finishes processing.
+                  Your responses have been saved. The final Gemini evaluation is shown below as soon as processing finishes.
                 </p>
               </div>
 
               {scoreLoading ? (
                 <div className="surface-panel-soft rounded-[1.8rem] py-12 text-center">
                   <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-[var(--primary)]" />
-                  <p className="text-sm text-muted-foreground">Gemini is evaluating your interview...</p>
+                  <p className="text-sm text-muted-foreground">Your transcript has been submitted. Gemini is preparing the final interview evaluation...</p>
                 </div>
               ) : finalScore !== null && (
                 <>
                   <div className="grid gap-4 lg:grid-cols-[0.62fr_0.38fr]">
                     <div className="surface-panel-soft rounded-[1.8rem] p-6 sm:p-7">
-                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Overall Score</p>
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Overall Interview Score</p>
                       <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
                         <div>
                           <span
@@ -339,7 +339,7 @@ export function InterviewRoom() {
                             background: finalScore >= 75 ? 'rgba(var(--success-rgb),0.1)' : finalScore >= 50 ? 'rgba(var(--warning-rgb),0.1)' : 'rgba(239,82,95,0.1)'
                           }}
                         >
-                          {finalScore >= 75 ? 'Strong Candidate' : finalScore >= 50 ? 'Borderline' : 'Below Threshold'}
+                          {finalScore >= 75 ? 'Strong performance' : finalScore >= 50 ? 'Moderate performance' : 'Needs improvement'}
                         </div>
                       </div>
 
@@ -360,12 +360,12 @@ export function InterviewRoom() {
 
                     <div className="grid gap-4">
                       <div className="metric-tile rounded-[1.5rem] p-5">
-                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Interviewed Candidate</p>
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Candidate</p>
                         <p className="mt-3 text-lg font-semibold text-foreground">{candidateName}</p>
                       </div>
                       <div className="metric-tile rounded-[1.5rem] p-5">
-                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Result Status</p>
-                        <p className="mt-3 text-lg font-semibold text-foreground">Evaluation complete</p>
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Evaluation Status</p>
+                        <p className="mt-3 text-lg font-semibold text-foreground">AI evaluation ready</p>
                       </div>
                     </div>
                   </div>
@@ -397,7 +397,7 @@ export function InterviewRoom() {
 
                   {questionFeedback.length > 0 && (
                     <div className="surface-panel-soft rounded-[1.8rem] p-6 sm:p-7">
-                      <p className="mb-5 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Question-by-question breakdown</p>
+                      <p className="mb-5 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Answer-by-answer evaluation</p>
                       <div className="space-y-4">
                         {questionFeedback.map((item, idx) => (
                           <div key={idx} className="rounded-[1.4rem] border border-white/8 bg-white/4 p-5">
@@ -425,7 +425,7 @@ export function InterviewRoom() {
                   onClick={() => { window.location.href = '/'; }}
                   className="btn-gradient rounded-2xl px-8 py-3.5 text-sm font-semibold"
                 >
-                  Return Home
+                  Back to Open Roles
                 </button>
               </div>
             </div>
@@ -440,9 +440,9 @@ export function InterviewRoom() {
       <div className="page-container flex h-full flex-col">
         <header className="topbar-surface mb-5 flex flex-wrap items-center justify-between gap-4 rounded-[1.7rem] px-5 py-4 sm:px-6">
           <div className="flex items-center gap-4">
-            <BrandMark subtitle="Interview Session" />
+            <BrandMark subtitle="AI Interview Session" />
             <div>
-              <p className="text-sm font-semibold text-foreground">AI Technical Interview</p>
+              <p className="text-sm font-semibold text-foreground">AI Interview in Progress</p>
               <p className="text-sm text-muted-foreground">{candidateName}</p>
             </div>
           </div>
@@ -472,7 +472,7 @@ export function InterviewRoom() {
           <div className="surface-panel relative min-h-[340px] overflow-hidden rounded-[2rem] xl:min-h-0">
             <div className="absolute left-5 top-5 z-10 flex items-center gap-2 rounded-full border border-white/10 bg-black/35 px-3 py-1.5 backdrop-blur-md">
               <span className={`h-2.5 w-2.5 rounded-full ${mediaStream ? 'animate-pulse bg-[var(--success)]' : 'bg-[var(--destructive)]'}`} />
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/90">Camera Feed</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/90">Live Camera</span>
             </div>
 
             <video
@@ -494,15 +494,15 @@ export function InterviewRoom() {
                 }}
               >
                 <p className="max-h-32 overflow-y-auto text-sm leading-7 text-white/90">
-                  {transcript || 'Listening...'}
+                  {transcript || 'Turn on the mic and start speaking when you are ready.'}
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="rounded-[1.3rem] border border-white/10 bg-white/5 px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/50">Voice status</p>
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/50">Response status</p>
                   <p className="mt-1 text-sm font-semibold text-white">
-                    {isListening ? 'Listening for your response' : 'Click mic to begin answering'}
+                    {isListening ? 'Listening for your answer' : 'Turn on the mic, speak, then submit your response'}
                   </p>
                 </div>
 
@@ -538,11 +538,11 @@ export function InterviewRoom() {
               <div className="flex items-center justify-between gap-4 border-b border-border/70 px-6 py-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Conversation Transcript</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Live interview dialogue and AI prompts.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Live transcript of interviewer prompts and your submitted answers.</p>
                 </div>
                 <div className="flex items-center gap-2 rounded-full border border-white/8 bg-white/4 px-3 py-1.5">
                   <Video className="h-3.5 w-3.5 text-[var(--success)]" />
-                  <span className="text-xs font-semibold text-foreground">Session live</span>
+                  <span className="text-xs font-semibold text-foreground">Secure interview live</span>
                 </div>
               </div>
 
@@ -591,7 +591,7 @@ export function InterviewRoom() {
                       <div className="rounded-[1.4rem] border border-border px-4 py-3.5">
                         <div className="flex items-center gap-3">
                           <Loader2 className="h-4 w-4 animate-spin text-[var(--primary)]" />
-                          <p className="text-sm text-muted-foreground">Thinking...</p>
+                          <p className="text-sm text-muted-foreground">Preparing next question...</p>
                         </div>
                       </div>
                     </div>

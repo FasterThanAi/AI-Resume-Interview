@@ -78,9 +78,10 @@ export const router = createBrowserRouter([
   element:
   <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-4xl mb-4">404 - Page Not Found</h1>
+          <h1 className="text-4xl mb-4">Page Not Found</h1>
+          <p className="mb-4 text-sm text-muted-foreground">The link you opened is missing or no longer available in the hiring workflow.</p>
           <a href="/jobs" className="text-blue-600 hover:underline">
-            Go to Job Board
+            Go to Open Roles
           </a>
         </div>
       </div>

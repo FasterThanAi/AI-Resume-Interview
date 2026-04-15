@@ -10,9 +10,7 @@ import {
   Mail,
   ShieldCheck,
   Sparkles,
-  Star,
   Tag,
-  Users,
   Wand2,
   Zap
 } from 'lucide-react';
@@ -51,13 +49,17 @@ export function JobBoard() {
     return new Date(ds).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const highlights = [
-    { icon: Briefcase, label: 'Open Roles', value: jobs.length || '0', note: 'Live positions ready for applicants' },
-    { icon: Users, label: 'Candidate Flow', value: '24h', note: 'Fast application review and routing' },
-    { icon: Star, label: 'AI Matching', value: '94%', note: 'Refined resume-to-role qualification scoring' }
-  ];
-
   const getCompanyName = (job) => job.companyName || 'Independent Hiring Team';
+  const companyCount = new Set(jobs.map((job) => getCompanyName(job))).size;
+  const interviewTopicCount = new Set(
+    jobs.flatMap((job) => (Array.isArray(job.interviewTopics) ? job.interviewTopics : []))
+  ).size;
+
+  const highlights = [
+    { icon: Briefcase, label: 'Open Roles', value: jobs.length || '0', note: 'Published roles currently accepting resumes' },
+    { icon: Building2, label: 'Hiring Teams', value: companyCount || '0', note: 'Companies with live openings on the board' },
+    { icon: Zap, label: 'Interview Topics', value: interviewTopicCount || '0', note: 'Tagged technical focus areas visible before applicants apply' }
+  ];
 
   return (
     <div className="page-shell bg-hero">
@@ -90,16 +92,16 @@ export function JobBoard() {
           >
             <span className="section-kicker mb-5">
               <Sparkles className="h-3.5 w-3.5" />
-              Product-Grade Hiring Workflow
+              AI Hiring Platform
             </span>
 
             <div className="max-w-2xl space-y-6">
               <div className="space-y-4">
                 <h1 className="text-5xl font-bold leading-[1.02] text-foreground sm:text-6xl xl:text-7xl">
-                  Discover roles that feel curated, not crowded.
+                  Find open roles and move into AI screening with confidence.
                 </h1>
                 <p className="max-w-xl text-base leading-8 text-muted-foreground sm:text-lg">
-                  Explore active openings, apply in minutes, and move into a structured AI-assisted assessment flow with a cleaner, faster candidate experience.
+                  Browse jobs published by real recruiters, review company and contact details, and submit your resume for ATS screening and secure interview eligibility.
                 </p>
               </div>
 
@@ -108,21 +110,21 @@ export function JobBoard() {
                   onClick={() => document.getElementById('jobs-grid')?.scrollIntoView({ behavior: 'smooth' })}
                   className="btn-gradient rounded-2xl px-5 py-3 text-sm font-semibold"
                 >
-                  Explore Open Roles
+                  Browse Open Roles
                 </button>
                 <button
                   onClick={() => navigate('/hr/login')}
                   className="control-button control-button-ghost px-5 py-3 text-sm"
                 >
-                  View HR Portal
+                  Recruiter Sign-in
                 </button>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">
                 {[
-                  { icon: Wand2, title: 'Instant qualification', copy: 'AI-assisted resume screening with structured follow-up.' },
-                  { icon: Zap, title: 'Fast decisioning', copy: 'Candidates move from application to interview without friction.' },
-                  { icon: Building2, title: 'Professional process', copy: 'A single workflow built for applicants and hiring teams.' }
+                  { icon: Wand2, title: 'ATS screening', copy: 'Every application is parsed, scored, and stored for recruiter review.' },
+                  { icon: Zap, title: 'Secure interview links', copy: 'Shortlisted candidates receive an email link to the AI interview session.' },
+                  { icon: Building2, title: 'Verified recruiter context', copy: 'Each role shows company identity, recruiter contact, skills, and interview topics.' }
                 ].map(({ icon: Icon, title, copy }) => (
                   <div key={title} className="metric-tile rounded-[1.35rem] p-4">
                     <Icon className="mb-3 h-4 w-4 text-[var(--info)]" />
@@ -161,17 +163,17 @@ export function JobBoard() {
           <div>
             <span className="section-kicker mb-3">
               <Briefcase className="h-3.5 w-3.5" />
-              Open Positions
+              Open Roles
             </span>
-            <h2 className="text-3xl font-bold text-foreground">Current opportunities</h2>
+            <h2 className="text-3xl font-bold text-foreground">Live roles accepting applications</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Browse live openings and move directly into the application flow without leaving the experience.
+              Each job includes company details, recruiter contact, required skills, and interview focus areas before you apply.
             </p>
           </div>
 
           {!loading && (
             <div className="surface-panel-soft rounded-2xl px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Available Now</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Live Board</p>
               <p className="mt-1 text-sm font-semibold text-foreground">
                 {jobs.length} {jobs.length === 1 ? 'role' : 'roles'}
               </p>
@@ -186,15 +188,15 @@ export function JobBoard() {
                 className="mx-auto h-11 w-11 animate-spin rounded-full border-2"
                 style={{ borderColor: 'rgba(var(--primary-rgb), 0.24)', borderTopColor: 'var(--primary)' }}
               />
-              <p className="mt-4 text-sm text-muted-foreground">Loading opportunities...</p>
+              <p className="mt-4 text-sm text-muted-foreground">Loading open roles...</p>
             </div>
           </div>
         ) : jobs.length === 0 ? (
           <div className="empty-state flex min-h-[280px] flex-col items-center justify-center px-6 text-center">
             <Briefcase className="mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="text-lg font-semibold text-foreground">No positions available right now</p>
+            <p className="text-lg font-semibold text-foreground">No open roles are published right now</p>
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-              New roles will appear here as soon as the HR team publishes them.
+              New roles will appear here as soon as recruiters publish jobs from their HR workspaces.
             </p>
           </div>
         ) : (
@@ -291,8 +293,8 @@ export function JobBoard() {
 
                 <div className="mt-7 flex items-center justify-between border-t border-border/70 pt-5">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Candidate Flow</p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">Application to screening to interview</p>
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Hiring Workflow</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">Resume screening to shortlist to AI interview</p>
                   </div>
 
                   <div className="btn-gradient inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold">
@@ -310,9 +312,9 @@ export function JobBoard() {
         <div className="page-container flex flex-col gap-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <BrandMark compact />
-            <span>Thoughtful hiring workflows for candidates and teams.</span>
+            <span>One workflow for ATS screening, AI interviews, and recruiter review.</span>
           </div>
-          <p>© 2026 RecruitAI · Automated Selection System</p>
+          <p>© 2026 HireAI · Automated Selection System</p>
         </div>
       </footer>
     </div>

@@ -35,13 +35,13 @@ export function HrResetPassword() {
     <AuthShell
       badge="New Password"
       title="Create a new password"
-      subtitle="Use the same working reset endpoint, now presented with a clearer and more trustworthy recovery experience."
+      subtitle="Set a new password for your HR account and restore access to the recruiter workspace."
       icon={Lock}
       backLabel="Back to Login"
       onBack={() => navigate('/hr/login')}
-      heroTitle="Restore access with one clean final step."
-      heroDescription="The token handling and submit behavior remain untouched, while the interface now gives the reset flow the same quality as the rest of the product."
-      heroHighlights={['Same token flow', 'Secure password update', 'Automatic return to login']}
+      heroTitle="Set a new password and return to hiring."
+      heroDescription="Use the secure link from your email to update your password and continue managing job posts, applicants, and interview outcomes."
+      heroHighlights={['Secure password update', 'Protected token link', 'Automatic return to sign-in']}
     >
       {!success ? (
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -89,7 +89,7 @@ export function HrResetPassword() {
             whileTap={{ scale: 0.98 }}
             className="btn-gradient w-full rounded-2xl px-6 py-3.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? 'Saving securely...' : 'Save New Password'}
+            {loading ? 'Updating password...' : 'Save New Password'}
           </motion.button>
         </form>
       ) : (
@@ -101,7 +101,7 @@ export function HrResetPassword() {
           <CheckCircle2 className="mx-auto mb-4 h-11 w-11 text-[var(--success)]" />
           <h3 className="text-lg font-bold text-foreground">Password Updated</h3>
           <p className="mt-3 text-sm leading-7 text-muted-foreground">
-            Your password has been reset successfully. Redirecting you back to the login screen...
+            Your password has been updated successfully. Redirecting you to HR sign-in...
           </p>
         </motion.div>
       )}

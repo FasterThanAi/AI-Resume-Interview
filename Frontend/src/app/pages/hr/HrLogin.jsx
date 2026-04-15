@@ -21,7 +21,7 @@ export function HrLogin() {
       await api.hrLogin(email, password);
       navigate('/hr/dashboard');
     } catch (err) {
-      setError(err.message || 'Login failed. Please try again.');
+      setError(err.response?.data?.error || 'Unable to sign in. Check your credentials and try again.');
     } finally {
       setLoading(false);
     }
@@ -30,14 +30,14 @@ export function HrLogin() {
   return (
     <AuthShell
       badge="HR Access"
-      title="Sign in to your console"
-      subtitle="Access jobs, candidates, analytics, and the full recruitment workflow from one place."
+      title="Sign in to your recruiter workspace"
+      subtitle="Access the jobs, candidates, ATS results, interview evaluations, and recruiter tools linked to your company account."
       icon={Briefcase}
       backLabel="Back to Job Board"
       onBack={() => navigate('/jobs')}
-      heroTitle="Operate recruiting like a modern product team."
-      heroDescription="The underlying auth flow stays the same, while the UI becomes clearer, calmer, and more production-grade across desktop and mobile."
-      heroHighlights={['Protected sessions', 'Premium admin workspace', 'Unified hiring operations']}
+      heroTitle="Access your hiring workflow securely."
+      heroDescription="Use the work email registered for your HR account to manage private job posts, review candidate pipelines, and inspect AI interview outcomes."
+      heroHighlights={['Private job management', 'ATS and interview review', 'Protected recruiter access']}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
@@ -117,7 +117,7 @@ export function HrLogin() {
               >
                 <Sparkles className="h-4 w-4" />
               </motion.span>
-              Signing in...
+              Signing in securely...
             </>
           ) : (
             <>
@@ -129,7 +129,7 @@ export function HrLogin() {
       </form>
 
       <div className="text-center text-sm text-muted-foreground">
-        Don&apos;t have an account?{' '}
+        Need an HR account?{' '}
         <button
           type="button"
           onClick={() => navigate('/hr/register')}
