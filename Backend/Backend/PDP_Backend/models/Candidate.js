@@ -68,6 +68,21 @@ const CandidateSchema = new mongoose.Schema({
     capturedAt: { type: Date, default: null }
   },
 
+  proctoringEvidenceSnapshots: [
+    {
+      eventType: { type: String, required: true },
+      message: { type: String, default: null },
+      imageData: { type: String, required: true },
+      capturedAt: { type: Date, default: Date.now },
+      details: { type: mongoose.Schema.Types.Mixed, default: {} }
+    }
+  ],
+
+  proctoringAlertState: {
+    lastMultipleFacesEvidenceAt: { type: Date, default: null },
+    lastMultipleFacesEmailAt: { type: Date, default: null }
+  },
+
   technicalInterviewInvitation: {
     scheduledAt: { type: Date, default: null },
     location: { type: String, default: null },

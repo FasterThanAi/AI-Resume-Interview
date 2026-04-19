@@ -6,12 +6,15 @@ import {
   flushProctoringEvents,
   getProctoringQueueStats,
   queueProctoringEvent,
+  saveProctoringEvidenceSnapshot,
   saveInterviewSnapshot,
   saveProctoringSummary
 } from '../utils/proctoring/eventReporter';
 
 const DETECTION_INTERVAL_MS = 1800;
 const MAX_RECENT_EVENTS = 8;
+const MAX_EVIDENCE_CAPTURES = 4;
+const EVIDENCE_CAPTURE_COOLDOWN_MS = 15000;
 const EVENT_COOLDOWN_MS = {
   TAB_SWITCH: 1200,
   WINDOW_BLUR: 1500,
@@ -43,6 +46,9 @@ export function useInterviewProctoring({
   const processingRef = useRef(false);
   const snapshotCapturedRef = useRef(false);
   const snapshotUploadInFlightRef = useRef(false);
+  const evidenceUploadInFlightRef = useRef(false);
+  const evidenceCaptureCountRef = useRef(0);
+  const evidenceCooldownRef = useRef(new Map());
   const latestSummaryRef = useRef({
     faceDetectionCount: 0,
     warningCount: 0,
@@ -67,6 +73,9 @@ export function useInterviewProctoring({
     cooldownRef.current.clear();
     snapshotCapturedRef.current = false;
     snapshotUploadInFlightRef.current = false;
+    evidenceUploadInFlightRef.current = false;
+    evidenceCaptureCountRef.current = 0;
+    evidenceCooldownRef.current.clear();
     latestSummaryRef.current = {
       faceDetectionCount: 0,
       warningCount: 0,
@@ -96,6 +105,32 @@ export function useInterviewProctoring({
     };
   }, [counts, faceDetectionCount]);
 
+  const captureFrame = ({ maxWidth = 360, quality = 0.72 } = {}) => {
+    const video = videoRef.current;
+    if (!video || video.readyState !== 4 || !video.videoWidth || !video.videoHeight) {
+      return null;
+    }
+
+    const scale = Math.min(1, maxWidth / video.videoWidth);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return null;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL('image/jpeg', quality);
+
+    if (!imageData || imageData === 'data:,') {
+      return null;
+    }
+
+    return imageData;
+  };
+
   const syncSummary = async () => {
     if (!token) {
       return;
@@ -119,26 +154,8 @@ export function useInterviewProctoring({
       return;
     }
 
-    const video = videoRef.current;
-    if (!video || video.readyState !== 4 || !video.videoWidth || !video.videoHeight) {
-      return;
-    }
-
-    const maxWidth = 360;
-    const scale = Math.min(1, maxWidth / video.videoWidth);
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-
-    const context = canvas.getContext('2d');
-    if (!context) {
-      return;
-    }
-
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageData = canvas.toDataURL('image/jpeg', 0.72);
-
-    if (!imageData || imageData === 'data:,') {
+    const imageData = captureFrame({ maxWidth: 360, quality: 0.72 });
+    if (!imageData) {
       return;
     }
 
@@ -154,6 +171,46 @@ export function useInterviewProctoring({
     }
   };
 
+  const captureProctoringEvidence = async (event) => {
+    if (
+      !token ||
+      !event?.eventType ||
+      evidenceUploadInFlightRef.current ||
+      evidenceCaptureCountRef.current >= MAX_EVIDENCE_CAPTURES
+    ) {
+      return;
+    }
+
+    const lastCapturedAt = evidenceCooldownRef.current.get(event.eventType);
+    const now = Date.now();
+    if (lastCapturedAt && now - lastCapturedAt < EVIDENCE_CAPTURE_COOLDOWN_MS) {
+      return;
+    }
+
+    const imageData = captureFrame({ maxWidth: 320, quality: 0.64 });
+    if (!imageData) {
+      return;
+    }
+
+    evidenceUploadInFlightRef.current = true;
+
+    try {
+      await saveProctoringEvidenceSnapshot(token, {
+        eventType: event.eventType,
+        message: event.message || null,
+        details: event.details || {},
+        timestamp: event.timestamp || new Date().toISOString(),
+        imageData
+      });
+      evidenceCooldownRef.current.set(event.eventType, now);
+      evidenceCaptureCountRef.current += 1;
+    } catch (error) {
+      console.error('Failed to save suspicious proctoring evidence:', error);
+    } finally {
+      evidenceUploadInFlightRef.current = false;
+    }
+  };
+
   const pushRecentEvent = (event) => {
     setRecentEvents((prev) => {
       const next = [toRecentEvent(event), ...prev];
@@ -163,7 +220,7 @@ export function useInterviewProctoring({
 
   const emitEvent = async (event) => {
     if (!token || !event?.eventType) {
-      return;
+      return false;
     }
 
     const cooldown = EVENT_COOLDOWN_MS[event.eventType] || 2500;
@@ -171,7 +228,7 @@ export function useInterviewProctoring({
     const now = Date.now();
 
     if (lastSeenAt && now - lastSeenAt < cooldown) {
-      return;
+      return false;
     }
 
     cooldownRef.current.set(event.eventType, now);
@@ -190,6 +247,7 @@ export function useInterviewProctoring({
       timestamp: event.timestamp || new Date().toISOString()
     });
     setQueueStats(getProctoringQueueStats());
+    return true;
   };
 
   useEffect(() => {
@@ -205,7 +263,7 @@ export function useInterviewProctoring({
         const detector = await faceDetection.createDetector(FACE_MODEL, {
           runtime: 'tfjs',
           modelType: 'short',
-          maxFaces: 2
+          maxFaces: 4
         });
 
         if (cancelled) {
@@ -273,7 +331,11 @@ export function useInterviewProctoring({
         }
 
         for (const alert of nextAnalysis.alerts) {
-          await emitEvent(alert);
+          const recorded = await emitEvent(alert);
+
+          if (recorded && alert.eventType === 'MULTIPLE_FACES') {
+            await captureProctoringEvidence(alert);
+          }
         }
       } catch (error) {
         console.error('Proctoring analysis error:', error);

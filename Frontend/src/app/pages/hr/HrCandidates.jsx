@@ -262,16 +262,92 @@ function InterviewSnapshotPanel({ candidate }) {
   );
 }
 
+function SuspiciousEvidencePanel({ candidate }) {
+  const evidenceItems = Array.isArray(candidate.proctoringEvidenceSnapshots)
+    ? [...candidate.proctoringEvidenceSnapshots]
+        .sort((left, right) => new Date(right.capturedAt || 0) - new Date(left.capturedAt || 0))
+    : [];
+  const lastHrAlertAt = candidate.proctoringAlertState?.lastMultipleFacesEmailAt;
+
+  return (
+    <div className="surface-panel-soft rounded-[1.5rem] p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <Users className="h-3.5 w-3.5" />
+            Suspicious Evidence
+          </p>
+          <p className="text-sm leading-7 text-muted-foreground">
+            Snapshots captured specifically when suspicious face activity was detected.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex rounded-full border border-white/8 bg-white/4 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+            Captures: {evidenceItems.length}
+          </span>
+          {lastHrAlertAt && (
+            <span className="inline-flex rounded-full border border-white/8 bg-white/4 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+              HR alerted {new Date(lastHrAlertAt).toLocaleString()}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {evidenceItems.length > 0 ? (
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {evidenceItems.map((item, index) => (
+            <div key={`${item.eventType || 'EVENT'}-${item.capturedAt || index}-${index}`} className="overflow-hidden rounded-[1.2rem] border border-white/8 bg-black/10">
+              <img
+                src={item.imageData}
+                alt={`${candidate.name} suspicious evidence ${index + 1}`}
+                className="h-44 w-full object-cover"
+                loading="lazy"
+              />
+              <div className="space-y-2 px-4 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-foreground">
+                    {(item.eventType || 'UNKNOWN').replaceAll('_', ' ')}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.capturedAt ? new Date(item.capturedAt).toLocaleString() : 'Unknown time'}
+                  </span>
+                </div>
+                {item.message && (
+                  <p className="text-sm leading-6 text-muted-foreground">{item.message}</p>
+                )}
+                {Number(item.details?.faceCount) > 0 && (
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                    Faces detected: {Number(item.details.faceCount)}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-5 rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.03] px-4 py-5">
+          <p className="text-sm leading-7 text-muted-foreground">
+            No suspicious evidence snapshots were stored for this session.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EvaluationPanel({ candidate, job, onOpenInviteDialog, technicalRoundThreshold }) {
   const hasEval = candidate.evaluationStatus === 'complete' || candidate.interviewScore !== null;
   const hasTranscript = Array.isArray(candidate.interviewTranscript) && candidate.interviewTranscript.length > 0;
   const hasProctoring = Array.isArray(candidate.proctoringEvents) && candidate.proctoringEvents.length > 0;
+  const hasSnapshot = Boolean(candidate.interviewSnapshot?.imageData);
+  const hasEvidence = Array.isArray(candidate.proctoringEvidenceSnapshots) && candidate.proctoringEvidenceSnapshots.length > 0;
   const hasInterviewScore = typeof candidate.interviewScore === 'number';
   const isEligibleForTechnicalRound = hasInterviewScore && candidate.interviewScore >= technicalRoundThreshold;
   const technicalInvitation = candidate.technicalInterviewInvitation || {};
   const hasTechnicalInvite = Boolean(technicalInvitation?.scheduledAt && technicalInvitation?.location);
 
-  if (!hasEval && !hasTranscript && !hasProctoring) {
+  if (!hasEval && !hasTranscript && !hasProctoring && !hasSnapshot && !hasEvidence) {
     return (
       <div className="px-6 pb-6 pt-2">
         <div className="empty-state rounded-[1.4rem] p-5 text-center">
@@ -286,6 +362,7 @@ function EvaluationPanel({ candidate, job, onOpenInviteDialog, technicalRoundThr
   return (
     <div className="px-6 pb-6 pt-2 space-y-5">
       <InterviewSnapshotPanel candidate={candidate} />
+      <SuspiciousEvidencePanel candidate={candidate} />
 
       <div className="surface-panel-soft rounded-[1.5rem] p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">

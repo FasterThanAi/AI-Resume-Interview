@@ -236,6 +236,11 @@ app.get('/api/interview/verify/:token', async (req, res) => {
         interviewSnapshot: {
           imageData: null,
           capturedAt: null
+        },
+        proctoringEvidenceSnapshots: [],
+        proctoringAlertState: {
+          lastMultipleFacesEvidenceAt: null,
+          lastMultipleFacesEmailAt: null
         }
       }
     });
@@ -313,6 +318,8 @@ const TOTAL_INTERVIEW_QUESTION_COUNT = 3;
 const INTRO_QUESTION = "Can you briefly introduce your background?";
 const GENERATED_INTERVIEW_QUESTION_COUNT = Math.max(TOTAL_INTERVIEW_QUESTION_COUNT - 1, 1);
 const MAX_SNAPSHOT_DATA_LENGTH = 250000;
+const MAX_PROCTORING_EVIDENCE_ITEMS = 4;
+const HR_MULTIPLE_FACES_ALERT_COOLDOWN_MS = 10 * 60 * 1000;
 
 const PROCTORING_EVENT_SEVERITY = {
   TAB_SWITCH: 'critical',
@@ -326,6 +333,21 @@ const PROCTORING_EVENT_SEVERITY = {
   ANALYSIS_ERROR: 'warning'
 };
 
+function normalizeProctoringTimestamp(rawTimestamp) {
+  const parsedTimestamp =
+    typeof rawTimestamp === 'number'
+      ? new Date(rawTimestamp)
+      : rawTimestamp
+        ? new Date(rawTimestamp)
+        : new Date();
+
+  return Number.isNaN(parsedTimestamp.getTime()) ? new Date() : parsedTimestamp;
+}
+
+function getSafeObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+}
+
 function normalizeProctoringEvent(rawEvent = {}) {
   const eventType = String(rawEvent.eventType || rawEvent.event || '').trim().toUpperCase();
 
@@ -333,24 +355,12 @@ function normalizeProctoringEvent(rawEvent = {}) {
     return null;
   }
 
-  const parsedTimestamp =
-    typeof rawEvent.timestamp === 'number'
-      ? new Date(rawEvent.timestamp)
-      : rawEvent.timestamp
-        ? new Date(rawEvent.timestamp)
-        : new Date();
-
   return {
     eventType,
     severity: PROCTORING_EVENT_SEVERITY[eventType] || rawEvent.severity || 'info',
     message: rawEvent.message || null,
-    timestamp: Number.isNaN(parsedTimestamp.getTime()) ? new Date() : parsedTimestamp,
-    details:
-      rawEvent.details && typeof rawEvent.details === 'object' && !Array.isArray(rawEvent.details)
-        ? rawEvent.details
-        : rawEvent.metadata && typeof rawEvent.metadata === 'object' && !Array.isArray(rawEvent.metadata)
-          ? rawEvent.metadata
-          : {}
+    timestamp: normalizeProctoringTimestamp(rawEvent.timestamp),
+    details: getSafeObject(rawEvent.details) || getSafeObject(rawEvent.metadata) || {}
   };
 }
 
@@ -369,9 +379,8 @@ function normalizeProctoringSummary(rawSummary = {}) {
   };
 }
 
-function normalizeInterviewSnapshot(rawSnapshot = {}) {
-  const imageData = typeof rawSnapshot.imageData === 'string' ? rawSnapshot.imageData.trim() : '';
-
+function extractValidSnapshotImage(rawImageData) {
+  const imageData = typeof rawImageData === 'string' ? rawImageData.trim() : '';
   if (!imageData.startsWith('data:image/')) {
     return null;
   }
@@ -380,10 +389,113 @@ function normalizeInterviewSnapshot(rawSnapshot = {}) {
     return null;
   }
 
+  return imageData;
+}
+
+function normalizeInterviewSnapshot(rawSnapshot = {}) {
+  const imageData = extractValidSnapshotImage(rawSnapshot.imageData);
+
+  if (!imageData) {
+    return null;
+  }
+
   return {
     imageData,
     capturedAt: new Date()
   };
+}
+
+function normalizeProctoringEvidenceSnapshot(rawSnapshot = {}) {
+  const imageData = extractValidSnapshotImage(rawSnapshot.imageData);
+  const eventType = String(rawSnapshot.eventType || rawSnapshot.event || '').trim().toUpperCase();
+
+  if (!imageData || !eventType) {
+    return null;
+  }
+
+  const trimmedMessage = typeof rawSnapshot.message === 'string' ? rawSnapshot.message.trim() : '';
+
+  return {
+    eventType,
+    message: trimmedMessage || null,
+    imageData,
+    capturedAt: normalizeProctoringTimestamp(rawSnapshot.timestamp),
+    details: getSafeObject(rawSnapshot.details) || getSafeObject(rawSnapshot.metadata) || {}
+  };
+}
+
+function buildSnapshotAttachment(imageData, filenameBase) {
+  const matches = imageData.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+
+  if (!matches) {
+    return null;
+  }
+
+  const mimeType = matches[1];
+  const extension = mimeType.includes('png') ? 'png' : 'jpg';
+
+  return {
+    filename: `${filenameBase}.${extension}`,
+    content: matches[2],
+    encoding: 'base64',
+    contentType: mimeType
+  };
+}
+
+async function sendMultipleFacesAlertEmail({ candidate, job, evidenceSnapshot }) {
+  const recruiterEmail = job?.hrEmail || job?.adminId?.email || null;
+
+  if (!candidate || !job || !recruiterEmail) {
+    return false;
+  }
+
+  const companyName = job.companyName || job.adminId?.companyName || 'Hiring Team';
+  const clientUrl = (process.env.CLIENT_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const recruiterReviewUrl = `${clientUrl}/hr/jobs/${job._id}/candidates`;
+  const faceCount = Number(evidenceSnapshot.details?.faceCount) || 0;
+  const attachment = buildSnapshotAttachment(
+    evidenceSnapshot.imageData,
+    `multiple-faces-${candidate._id}-${Date.now()}`
+  );
+  const mailOptions = {
+    from: `"${transporter.senderName}" <${transporter.senderEmail}>`,
+    replyTo: transporter.senderEmail,
+    to: recruiterEmail,
+    subject: `HireAI Proctoring Alert - Multiple faces detected for ${candidate.name}`,
+    text:
+      `Hello,\n\n` +
+      `HireAI detected multiple faces during a live interview session.\n\n` +
+      `Candidate: ${candidate.name}\n` +
+      `Candidate Email: ${candidate.email}\n` +
+      `Role: ${job.title || 'Unknown role'}\n` +
+      `Company: ${companyName}\n` +
+      `Detected At: ${new Date(evidenceSnapshot.capturedAt).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' })}\n` +
+      `${faceCount > 0 ? `Detected Faces: ${faceCount}\n` : ''}` +
+      `${evidenceSnapshot.message ? `Reason: ${evidenceSnapshot.message}\n` : ''}\n` +
+      `Review candidate evidence here:\n${recruiterReviewUrl}\n\n` +
+      `The captured evidence image is attached to this email.\n\n` +
+      `Best regards,\nHireAI`
+  };
+
+  if (attachment) {
+    mailOptions.attachments = [attachment];
+  }
+
+  try {
+    const mailInfo = await transporter.sendMail(mailOptions);
+    console.log('Multiple faces HR alert email sent:', {
+      to: recruiterEmail,
+      candidateId: String(candidate._id),
+      jobId: String(job._id),
+      messageId: mailInfo.messageId,
+      accepted: mailInfo.accepted,
+      rejected: mailInfo.rejected
+    });
+    return true;
+  } catch (error) {
+    console.error('Failed to send multiple faces HR alert email:', error.message);
+    return false;
+  }
 }
 
 app.post('/api/interview/snapshot/:token', async (req, res) => {
@@ -416,6 +528,84 @@ app.post('/api/interview/snapshot/:token', async (req, res) => {
   } catch (error) {
     console.error('Interview snapshot ingestion error:', error.message);
     res.status(500).json({ error: 'Failed to save interview snapshot.' });
+  }
+});
+
+app.post('/api/interview/evidence/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const candidate = await Candidate.findOne({ interviewToken: token })
+      .select('_id name email appliedJobId proctoringAlertState');
+
+    if (!candidate) {
+      return res.status(404).json({ error: 'Candidate not found. Invalid token.' });
+    }
+
+    const evidenceSnapshot = normalizeProctoringEvidenceSnapshot(req.body);
+
+    if (!evidenceSnapshot) {
+      return res.status(400).json({ error: 'A valid suspicious evidence snapshot is required.' });
+    }
+
+    const update = {
+      $push: {
+        proctoringEvidenceSnapshots: {
+          $each: [evidenceSnapshot],
+          $slice: -MAX_PROCTORING_EVIDENCE_ITEMS
+        }
+      }
+    };
+
+    if (evidenceSnapshot.eventType === 'MULTIPLE_FACES') {
+      update.$set = {
+        'proctoringAlertState.lastMultipleFacesEvidenceAt': evidenceSnapshot.capturedAt
+      };
+    }
+
+    await Candidate.findByIdAndUpdate(candidate._id, update);
+
+    let hrAlertSent = false;
+
+    if (evidenceSnapshot.eventType === 'MULTIPLE_FACES') {
+      const lastAlertAt = candidate.proctoringAlertState?.lastMultipleFacesEmailAt
+        ? new Date(candidate.proctoringAlertState.lastMultipleFacesEmailAt)
+        : null;
+      const canSendAlert =
+        !lastAlertAt ||
+        Number.isNaN(lastAlertAt.getTime()) ||
+        Date.now() - lastAlertAt.getTime() >= HR_MULTIPLE_FACES_ALERT_COOLDOWN_MS;
+
+      if (canSendAlert) {
+        const job = await Job.findById(candidate.appliedJobId).populate('adminId', 'email companyName');
+
+        if (job) {
+          hrAlertSent = await sendMultipleFacesAlertEmail({
+            candidate,
+            job,
+            evidenceSnapshot
+          });
+        }
+
+        if (hrAlertSent) {
+          await Candidate.findByIdAndUpdate(candidate._id, {
+            $set: {
+              'proctoringAlertState.lastMultipleFacesEmailAt': new Date()
+            }
+          });
+        }
+      }
+    }
+
+    console.log(`[DB WRITE] Saved ${evidenceSnapshot.eventType} evidence snapshot for ${candidate.name}`);
+
+    res.status(201).json({
+      success: true,
+      capturedAt: evidenceSnapshot.capturedAt,
+      hrAlertSent
+    });
+  } catch (error) {
+    console.error('Proctoring evidence ingestion error:', error.message);
+    res.status(500).json({ error: 'Failed to save suspicious evidence snapshot.' });
   }
 });
 
